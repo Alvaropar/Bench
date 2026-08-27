@@ -6,7 +6,7 @@
 | --- | --- |
 | Live demo | https://agentic-fullstack-gen.vercel.app |
 | A published app | https://agentic-fullstack-gen.vercel.app/p/equipment-checkout-7ygprm |
-| Source | https://github.com/Alvaropar/agentic-fullstack-gen |
+| Source | https://github.com/Alvaropar/Bench |
 | Model | Kimi K3 (`kimi-k3`), swappable to Claude Opus 5 via one env var |
 
 ---
