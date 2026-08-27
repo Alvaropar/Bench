@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Workspace } from "@/components/Workspace";
 import { listMessages } from "@/lib/messages";
-import { getCurrentVersion, getProject } from "@/lib/projects";
+import { getCurrentVersion, getProject, listVersionSummaries } from "@/lib/projects";
 import { getSessionId } from "@/lib/session";
 import { EMPTY_SCHEMA } from "@/lib/types";
 
@@ -23,9 +23,10 @@ export default async function ProjectPage({
     notFound();
   }
 
-  const [version, history] = await Promise.all([
+  const [version, history, versions] = await Promise.all([
     getCurrentVersion(project),
     listMessages(projectId),
+    listVersionSummaries(projectId),
   ]);
 
   return (
@@ -41,6 +42,8 @@ export default async function ProjectPage({
         content: message.content,
         events: message.toolEvents ?? undefined,
       }))}
+      initialVersions={versions}
+      initialCurrentVersionId={project.currentVersionId}
       initialPrompt={typeof prompt === "string" ? prompt : undefined}
     />
   );

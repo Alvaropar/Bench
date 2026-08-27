@@ -162,3 +162,51 @@ export async function ownedProject(
   if (!project) throw notFound("Project not found");
   return project;
 }
+
+/** Version metadata without the file bodies, which are large and rarely needed. */
+export interface VersionSummary {
+  id: string;
+  parentId: string | null;
+  label: string | null;
+  createdAt: string;
+  fileCount: number;
+  collections: string[];
+}
+
+export function toVersionSummary(version: Version): VersionSummary {
+  return {
+    id: version.id,
+    parentId: version.parentId,
+    label: version.label,
+    createdAt: version.createdAt.toISOString(),
+    fileCount: Object.keys(version.files).length,
+    collections: version.appSchema.collections.map((collection) => collection.name),
+  };
+}
+
+export async function listVersionSummaries(projectId: string): Promise<VersionSummary[]> {
+  return (await listVersions(projectId)).map(toVersionSummary);
+}
+
+/**
+ * Restores an earlier version by appending a copy of it.
+ *
+ * History stays append-only: restoring never rewinds or discards anything, so
+ * you can always get back to where you were. Records are untouched — they hang
+ * off the project, not the version.
+ */
+export async function restoreVersion(
+  projectId: string,
+  versionId: string,
+): Promise<Version> {
+  const source = await getVersion(versionId);
+  if (!source || source.projectId !== projectId) throw notFound("Version not found");
+
+  return commitVersion({
+    projectId,
+    parentId: source.id,
+    files: source.files,
+    appSchema: source.appSchema,
+    label: `Restored "${source.label ?? "an earlier version"}"`,
+  });
+}

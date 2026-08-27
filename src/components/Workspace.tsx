@@ -5,8 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AgentTimeline } from "@/components/AgentTimeline";
 import { AppPreview } from "@/components/AppPreview";
 import { DataView } from "@/components/DataView";
+import { VersionHistory } from "@/components/VersionHistory";
 import { PublishToggle } from "@/components/PublishToggle";
 import { streamGeneration } from "@/lib/client/generate";
+import type { VersionSummary } from "@/lib/projects";
 import type { AppSchema, FileMap, ToolEvent } from "@/lib/types";
 
 interface Turn {
@@ -15,7 +17,7 @@ interface Turn {
   events?: ToolEvent[];
 }
 
-type Tab = "preview" | "data" | "files";
+type Tab = "preview" | "data" | "files" | "history";
 
 /** Attempts the agent gets at fixing its own output before we stop asking. */
 const MAX_AUTO_FIXES = 2;
@@ -38,6 +40,8 @@ export function Workspace({
   initialFiles,
   initialSchema,
   initialTurns,
+  initialVersions,
+  initialCurrentVersionId,
   initialPrompt,
 }: {
   projectId: string;
@@ -47,12 +51,16 @@ export function Workspace({
   initialFiles: FileMap;
   initialSchema: AppSchema;
   initialTurns: Turn[];
+  initialVersions: VersionSummary[];
+  initialCurrentVersionId: string | null;
   /** Carried over from the home page so the first build starts on arrival. */
   initialPrompt?: string;
 }) {
   const [files, setFiles] = useState<FileMap>(initialFiles);
   const [schema, setSchema] = useState<AppSchema>(initialSchema);
   const [turns, setTurns] = useState<Turn[]>(initialTurns);
+  const [versions, setVersions] = useState<VersionSummary[]>(initialVersions);
+  const [currentVersionId, setCurrentVersionId] = useState(initialCurrentVersionId);
   const [draft, setDraft] = useState("");
   const [running, setRunning] = useState(false);
   const [liveEvents, setLiveEvents] = useState<ToolEvent[]>([]);
@@ -98,6 +106,18 @@ export function Workspace({
               autoFixArmed.current = true;
               setFiles(event.files);
               setSchema(event.schema);
+              setCurrentVersionId(event.versionId);
+              setVersions((current) => [
+                {
+                  id: event.versionId,
+                  parentId: currentVersionId,
+                  label: message.slice(0, 80),
+                  createdAt: new Date().toISOString(),
+                  fileCount: Object.keys(event.files).length,
+                  collections: event.schema.collections.map((c) => c.name),
+                },
+                ...current,
+              ]);
               setTurns((current) => [
                 ...current,
                 { role: "assistant", content: event.summary, events: [...events] },
@@ -122,7 +142,7 @@ export function Workspace({
         abortRef.current = null;
       }
     },
-    [projectId, running],
+    [projectId, running, currentVersionId],
   );
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
@@ -274,7 +294,7 @@ export function Workspace({
 
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-1 border-b border-border px-3 py-2">
-            {(["preview", "data", "files"] as Tab[]).map((name) => (
+            {(["preview", "data", "files", "history"] as Tab[]).map((name) => (
               <button
                 key={name}
                 onClick={() => setTab(name)}
@@ -286,6 +306,11 @@ export function Workspace({
                 {name === "files" && filePaths.length > 0 && (
                   <span className="ml-1.5 font-mono text-[11px] text-muted">
                     {filePaths.length}
+                  </span>
+                )}
+                {name === "history" && versions.filter((v) => v.fileCount > 0).length > 0 && (
+                  <span className="ml-1.5 font-mono text-[11px] text-muted">
+                    {versions.filter((v) => v.fileCount > 0).length}
                   </span>
                 )}
                 {name === "data" && schema.collections.length > 0 && (
@@ -318,6 +343,19 @@ export function Workspace({
               <AppPreview projectId={projectId} files={files} onError={handlePreviewError} />
             ) : tab === "data" ? (
               <DataView projectId={projectId} schema={schema} />
+            ) : tab === "history" ? (
+              <VersionHistory
+                projectId={projectId}
+                versions={versions}
+                currentVersionId={currentVersionId}
+                disabled={running}
+                onRestored={(result) => {
+                  setFiles(result.files);
+                  setSchema(result.schema);
+                  setVersions(result.versions);
+                  setCurrentVersionId(result.currentVersionId);
+                }}
+              />
             ) : (
               <div className="h-full overflow-y-auto p-4">
                 {filePaths.length === 0 ? (

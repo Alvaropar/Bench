@@ -16,7 +16,9 @@ import {
   commitVersion,
   createProject,
   getCurrentVersion,
+  listVersionSummaries,
   ownedProject,
+  restoreVersion,
   setPublished,
 } from "../src/lib/projects";
 import {
@@ -222,6 +224,27 @@ async function main() {
   await setPublished(project.id, false);
   await expectThrow("unpublishing revokes the stranger again", () =>
     authorizeProject(project.id, stranger),
+  );
+
+  console.log("\nVersion history");
+  const beforeRestore = await listRecords({ projectId: project.id, collection: "customers" });
+  const restored = await restoreVersion(project.id, version.id);
+  check("restoring appends a new version", restored.id !== version.id);
+  check(
+    "the restored version carries the old files",
+    JSON.stringify(restored.files) === JSON.stringify({ "App.tsx": "// generated" }),
+    restored.files,
+  );
+  const summaries = await listVersionSummaries(project.id);
+  check("history is append-only", summaries.length >= 3, summaries.length);
+  check(
+    "summaries omit file bodies",
+    !("files" in summaries[0]) && typeof summaries[0].fileCount === "number",
+  );
+  check(
+    "restoring leaves the data alone",
+    (await listRecords({ projectId: project.id, collection: "customers" })).length ===
+      beforeRestore.length,
   );
 
   console.log("\nIsolation");
