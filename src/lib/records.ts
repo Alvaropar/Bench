@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { records } from "@/db/schema";
 import type { RecordRow } from "@/db/schema";
@@ -183,4 +183,23 @@ export async function countByCollection(
     counts[row.collection] = (counts[row.collection] ?? 0) + 1;
   }
   return counts;
+}
+
+/**
+ * Fingerprint of a project's data: newest change plus row count.
+ *
+ * The count matters as well as the timestamp -- a delete moves no updated_at
+ * but must still invalidate, and two writes inside the same clock tick would
+ * otherwise look like one.
+ */
+export async function changeToken(projectId: string): Promise<string> {
+  const [row] = await getDb()
+    .select({
+      latest: sql<string | null>`max(${records.updatedAt})`,
+      total: count(),
+    })
+    .from(records)
+    .where(eq(records.projectId, projectId));
+
+  return `${row?.latest ?? "0"}:${row?.total ?? 0}`;
 }

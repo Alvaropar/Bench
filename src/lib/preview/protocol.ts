@@ -7,7 +7,7 @@
  * generated code and avoids CORS with the sandbox origin entirely.
  */
 
-export type BridgeOp = "list" | "create" | "update" | "remove" | "upload";
+export type BridgeOp = "list" | "create" | "update" | "remove" | "upload" | "changes";
 
 export interface BridgeRequest {
   __bench: "request";
@@ -43,7 +43,9 @@ export function isBridgeRequest(value: unknown): value is BridgeRequest {
     typeof message.op === "string" &&
     typeof message.payload === "object" &&
     message.payload !== null &&
-    (message.op === "upload" || typeof message.payload.collection === "string")
+    (message.op === "upload" ||
+      message.op === "changes" ||
+      typeof message.payload.collection === "string")
   );
 }
 
@@ -93,6 +95,10 @@ export async function handleBridgeRequest(
         await request_(`${base}/${payload.id}`, { method: "DELETE" });
         return { __bench: "response", id: request.id, result: null };
       }
+      case "changes": {
+        const body = await request_(`/api/apps/${projectId}/changes`, { method: "GET" });
+        return { __bench: "response", id: request.id, result: body.token };
+      }
       case "upload": {
         const body = await request_(`/api/apps/${projectId}/assets`, {
           method: "POST",
@@ -121,6 +127,7 @@ interface ApiBody {
   records?: unknown;
   record?: unknown;
   asset?: unknown;
+  token?: unknown;
   error?: string;
   details?: unknown;
 }

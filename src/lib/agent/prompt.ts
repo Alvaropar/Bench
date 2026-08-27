@@ -40,9 +40,9 @@ fetch, no localStorage, no SQL, and no other backend available to you.
 
   import { useCollection, db, BenchRecord } from "./bench/db";
 
-useCollection is what you want almost always. It loads rows, polls so two people
-with the same link see each other's changes, and gives you writers that update
-local state optimistically:
+useCollection is what you want almost always. It loads rows, keeps them live so
+two people with the same link see each other's changes within about a second,
+and gives you writers that update local state optimistically:
 
   interface Customer extends BenchRecord {
     company: string;

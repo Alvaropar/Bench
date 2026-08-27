@@ -20,7 +20,7 @@ export interface BenchRecord {
   [key: string]: unknown;
 }
 
-type Op = "list" | "create" | "update" | "remove" | "upload";
+type Op = "list" | "create" | "update" | "remove" | "upload" | "changes";
 
 let sequence = 0;
 const pending = new Map<
@@ -79,7 +79,7 @@ export function useCollection<T extends BenchRecord = BenchRecord>(
   name: string,
   options: ListOptions & { pollMs?: number } = {},
 ) {
-  const { pollMs = 4000, ...listOptions } = options;
+  const { pollMs = 1000, ...listOptions } = options;
   const [records, setRecords] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,11 +99,32 @@ export function useCollection<T extends BenchRecord = BenchRecord>(
     }
   }, [name]);
 
+  // Watch a tiny fingerprint of the project's data rather than refetching the
+  // rows. One second of latency costs about thirty bytes per viewer, where
+  // refetching the table every second would cost the whole table.
+  const tokenRef = useRef<string | null>(null);
+
   useEffect(() => {
+    let stopped = false;
+
     refresh();
     if (!pollMs) return;
-    const timer = setInterval(refresh, pollMs);
-    return () => clearInterval(timer);
+
+    const timer = setInterval(async () => {
+      try {
+        const token = (await call("changes", {})) as string;
+        if (stopped) return;
+        if (tokenRef.current !== null && token !== tokenRef.current) refresh();
+        tokenRef.current = token;
+      } catch {
+        // A dropped poll is not worth surfacing; the next one will catch up.
+      }
+    }, pollMs);
+
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
   }, [refresh, pollMs]);
 
   const create = useCallback(
