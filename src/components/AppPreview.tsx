@@ -46,14 +46,27 @@ function ErrorReporter({ onError }: { onError?: (message: string | null) => void
   return null;
 }
 
+export interface PickedElement {
+  tag: string;
+  className: string;
+  text: string;
+  path: string;
+  attributes: string;
+}
+
 export function AppPreview({
   projectId,
   files,
   onError,
+  selectMode = false,
+  onPick,
 }: {
   projectId: string;
   files: FileMap;
   onError?: (message: string | null) => void;
+  /** Click-to-edit: highlight elements and report the one clicked. */
+  selectMode?: boolean;
+  onPick?: (element: PickedElement | null) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -65,8 +78,20 @@ export function AppPreview({
     );
   }, []);
 
+  // Kept in a ref so a new onPick identity does not tear down and rebuild the
+  // message listener, which would drop any bridge request in flight. Assigned
+  // in an effect, never during render.
+  const onPickRef = useRef(onPick);
+  useEffect(() => {
+    onPickRef.current = onPick;
+  }, [onPick]);
+
   useEffect(() => {
     async function onMessage(event: MessageEvent) {
+      if (event.data?.__bench === "picked" && isFromPreview(event.source)) {
+        onPickRef.current?.(event.data.element ?? null);
+        return;
+      }
       if (!isBridgeRequest(event.data)) return;
       // The generated app posts with targetOrigin "*" because it cannot know
       // ours. Trust is established the other way round: only a frame we are
@@ -80,6 +105,11 @@ export function AppPreview({
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [projectId, isFromPreview]);
+
+  useEffect(() => {
+    const frame = containerRef.current?.querySelector("iframe");
+    frame?.contentWindow?.postMessage({ __bench: "inspect", enabled: selectMode }, "*");
+  }, [selectMode]);
 
   const hasApp = Object.keys(files).length > 0;
 

@@ -1,5 +1,6 @@
 import { CHARTS_SOURCE } from "@/lib/agent/charts-kit";
 import { DB_CLIENT_SOURCE } from "@/lib/agent/db-client";
+import { INSPECT_SOURCE } from "@/lib/agent/inspect-kit";
 import { ROUTER_SOURCE, ROUTER_STYLES } from "@/lib/agent/router-kit";
 import { STYLES_SOURCE, UI_SOURCE } from "@/lib/agent/ui-kit";
 import type { FileMap } from "@/lib/types";
@@ -20,6 +21,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./bench/styles.css";
+import "./bench/inspect";
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -34,6 +36,7 @@ export const SCAFFOLD_FILES: FileMap = {
   "bench/ui.tsx": UI_SOURCE,
   "bench/charts.tsx": CHARTS_SOURCE,
   "bench/router.tsx": ROUTER_SOURCE,
+  "bench/inspect.ts": INSPECT_SOURCE,
   "bench/styles.css": STYLES_SOURCE + ROUTER_STYLES,
 };
 

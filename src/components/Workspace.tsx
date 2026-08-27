@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AgentTimeline } from "@/components/AgentTimeline";
-import { AppPreview } from "@/components/AppPreview";
+import { AppPreview, type PickedElement } from "@/components/AppPreview";
 import { DataView } from "@/components/DataView";
 import { VersionHistory } from "@/components/VersionHistory";
 import { PublishToggle } from "@/components/PublishToggle";
@@ -31,6 +31,27 @@ const FIX_PROMPT = (error: string) =>
     "",
     "Fix it, changing as little as possible.",
   ].join("\n");
+
+/**
+ * Describes the clicked element well enough for the agent to find it.
+ *
+ * No source mapping: the agent already has every file in context, so tag,
+ * classes, visible text and the ancestor chain are enough to locate the JSX --
+ * and unlike line numbers, that survives the agent restructuring the code.
+ */
+const ELEMENT_PROMPT = (element: PickedElement, instruction: string) =>
+  [
+    "Change this element in the app:",
+    "",
+    "  element:  <" + element.tag + (element.className ? ' class="' + element.className + '"' : "") + ">",
+    element.attributes ? "  attrs:    " + element.attributes : "",
+    element.text ? "  text:     " + element.text : "",
+    "  location: " + element.path,
+    "",
+    instruction,
+  ]
+    .filter(Boolean)
+    .join("\n");
 
 export function Workspace({
   projectId,
@@ -68,6 +89,8 @@ export function Workspace({
   const [runError, setRunError] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("preview");
+  const [selectMode, setSelectMode] = useState(false);
+  const [picked, setPicked] = useState<PickedElement | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const autoFixArmed = useRef(false);
@@ -188,6 +211,26 @@ export function Workspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPrompt]);
 
+  const submitElementAware = useCallback(
+    (message: string) => {
+      if (!message.trim()) return;
+      if (picked) {
+        // The chat shows the plain instruction; the model gets the element too.
+        submit(ELEMENT_PROMPT(picked, message), message);
+        setPicked(null);
+        autoFixes.current = 0;
+        return;
+      }
+      submitManual(message);
+    },
+    [picked, submit, submitManual],
+  );
+
+  const handlePick = useCallback((element: PickedElement | null) => {
+    setSelectMode(false);
+    setPicked(element);
+  }, []);
+
   const filePaths = Object.keys(files).sort();
   const versionCount = versions.filter((version) => version.fileCount > 0).length;
 
@@ -282,11 +325,31 @@ export function Workspace({
             )}
           </div>
 
+          {picked && (
+            <div className="mx-3 mb-2 rounded-xl border border-accent/40 bg-accent-dim/40 px-3 py-2">
+              <div className="flex items-start gap-2">
+                <span className="min-w-0 flex-1 text-[12px] leading-relaxed">
+                  <span className="text-muted">Editing </span>
+                  <code className="font-mono text-accent">&lt;{picked.tag}&gt;</code>
+                  {picked.text && (
+                    <span className="text-muted"> &ldquo;{picked.text.slice(0, 60)}&rdquo;</span>
+                  )}
+                </span>
+                <button
+                  onClick={() => setPicked(null)}
+                  className="shrink-0 text-[11px] text-muted hover:text-foreground"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
+
           <form
             className="shrink-0 p-3"
             onSubmit={(event) => {
               event.preventDefault();
-              submitManual(draft);
+              submitElementAware(draft);
             }}
           >
             <div className="rounded-xl border border-border bg-surface transition-colors focus-within:border-border-strong">
@@ -296,15 +359,17 @@ export function Workspace({
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
-                    submitManual(draft);
+                    submitElementAware(draft);
                   }
                 }}
                 rows={2}
                 disabled={running}
                 placeholder={
-                  filePaths.length === 0
-                    ? "A CRM for a small sales team..."
-                    : "Add a dashboard with monthly revenue..."
+                  picked
+                    ? "Describe the change to this element..."
+                    : filePaths.length === 0
+                      ? "A CRM for a small sales team..."
+                      : "Add a dashboard with monthly revenue..."
                 }
                 className="w-full resize-none bg-transparent px-3.5 pt-3 text-sm leading-relaxed outline-none placeholder:text-faint disabled:opacity-60"
               />
@@ -355,6 +420,21 @@ export function Workspace({
 
             <div className="flex-1" />
 
+            {tab === "preview" && filePaths.length > 0 && !previewError && (
+              <button
+                onClick={() => setSelectMode((current) => !current)}
+                disabled={running}
+                className={
+                  selectMode
+                    ? "shrink-0 rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-background disabled:opacity-50"
+                    : "shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs text-muted transition-colors hover:border-border-strong hover:text-foreground disabled:opacity-50"
+                }
+                title="Click an element in the app, then describe the change"
+              >
+                {selectMode ? "Click an element…" : "Select"}
+              </button>
+            )}
+
             {previewError && (
               <>
                 <span
@@ -377,7 +457,13 @@ export function Workspace({
 
           <div className="min-h-0 flex-1 overflow-hidden bg-surface">
             {tab === "preview" ? (
-              <AppPreview projectId={projectId} files={files} onError={handlePreviewError} />
+              <AppPreview
+                projectId={projectId}
+                files={files}
+                onError={handlePreviewError}
+                selectMode={selectMode}
+                onPick={handlePick}
+              />
             ) : tab === "data" ? (
               <DataView projectId={projectId} schema={schema} />
             ) : tab === "history" ? (
