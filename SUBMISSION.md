@@ -232,6 +232,12 @@ This is only findable by running the thing.
 - **The schema is flat.** No relations, so a link between collections is a name
   string rather than a foreign key. This is the limitation real internal tools
   hit first, and the one I would close next.
+- **A big app can outrun the serverless clock.** A three-collection tool with a
+  dashboard and detail pages measured 222s against a 300s function limit; the
+  cost is output generation, not the prompt, which is only ~2,900 tokens a turn.
+  Bench stops itself at 200s with an explanation rather than being killed
+  mid-stream, but the honest answer for a large app is to build it in two
+  messages.
 - **Collaboration is ~1s, not sub-second.** A change token polled every second,
   not a push. True realtime needs a service Bench does not depend on.
 - **Uploads live in Postgres as base64**, capped at 1.5MB per file and 40MB per

@@ -29,6 +29,20 @@ import type { FileMap, ToolEvent } from "@/lib/types";
 const MAX_ITERATIONS = 12;
 
 /**
+ * Wall-clock budget for starting another turn.
+ *
+ * A serverless function is killed at 300s with no warning: the stream simply
+ * stops, and the browser is left with a half-written answer and no explanation.
+ * Stopping ourselves short turns that into a message the user can act on.
+ *
+ * Checked between turns, which is the only point where stopping is clean, so
+ * the number is "latest moment it is safe to begin another turn" rather than a
+ * total budget -- a turn runs 40-80s, so this leaves headroom to finish and
+ * commit inside the limit.
+ */
+const DEADLINE_MS = Number(process.env.BENCH_DEADLINE_MS ?? 200_000);
+
+/**
  * `yield*` below forwards the provider's deltas straight to the SSE stream,
  * which only works while every ProviderDelta is also a valid StreamEvent.
  * Pinned here so adding a provider-only delta breaks the build rather than
@@ -83,7 +97,17 @@ export async function* runAgent(input: {
   const timeline: ToolEvent[] = [];
   let summary = "";
 
+  const startedAt = Date.now();
+
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+    if (Date.now() - startedAt > DEADLINE_MS) {
+      throw new Error(
+        "This generation ran past the time limit before it finished. Try a simpler " +
+          "description, or split it: build the core tool first, then ask for the " +
+          "dashboard and extra screens in a follow-up message.",
+      );
+    }
+
     const turn = yield* provider.streamTurn({
       system: SYSTEM_PROMPT,
       messages: conversation,
@@ -95,6 +119,15 @@ export async function* runAgent(input: {
     }
 
     if (turn.toolCalls.length === 0) {
+      // "length" means the model was cut off mid-thought, not that it finished.
+      // Treating it as completion is how a truncated run turns into the
+      // confusing "finished without writing App.tsx".
+      if (turn.stopReason === "length") {
+        throw new Error(
+          "The model ran out of room before it finished. Try a shorter description, " +
+            "or ask for the app first and the extra screens afterwards.",
+        );
+      }
       summary = turn.text;
       break;
     }

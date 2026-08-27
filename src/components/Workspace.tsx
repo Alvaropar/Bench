@@ -20,6 +20,29 @@ interface Turn {
 
 type Tab = "preview" | "data" | "files" | "history";
 
+/**
+ * A build can take two or three minutes. Without a clock on it, a long run is
+ * indistinguishable from a dead one.
+ */
+function Elapsed({ since }: { since: number }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const seconds = Math.max(0, Math.floor((now - since) / 1000));
+  const label = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+
+  return (
+    <span className="font-mono text-[11px] text-faint">
+      {label}
+      {seconds > 150 && <span className="ml-1.5 text-warn">still working</span>}
+    </span>
+  );
+}
+
 /** Attempts the agent gets at fixing its own output before we stop asking. */
 const MAX_AUTO_FIXES = 2;
 
@@ -91,6 +114,7 @@ export function Workspace({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("preview");
   const [selectMode, setSelectMode] = useState(false);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
   const [picked, setPicked] = useState<PickedElement | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -102,6 +126,7 @@ export function Workspace({
       if (!message.trim() || running) return;
 
       setRunning(true);
+      setStartedAt(Date.now());
       setRunError(null);
       setPreviewError(null);
       setLiveEvents([]);
@@ -114,6 +139,8 @@ export function Workspace({
 
       const events: ToolEvent[] = [];
       let summary = "";
+      // A stream that ends without either is a stream that was cut off.
+      let settled = false;
 
       try {
         for await (const event of streamGeneration(projectId, message, controller.signal)) {
@@ -127,6 +154,7 @@ export function Workspace({
               setLiveText(summary);
               break;
             case "done":
+              settled = true;
               autoFixArmed.current = true;
               setFiles(event.files);
               setSchema(event.schema);
@@ -150,6 +178,7 @@ export function Workspace({
               setLiveText("");
               break;
             case "error":
+              settled = true;
               setRunError(event.message);
               break;
             // `thinking` and `start` carry no user-visible state of their own.
@@ -157,12 +186,23 @@ export function Workspace({
               break;
           }
         }
+        if (!settled && !controller.signal.aborted) {
+          // The server was killed mid-stream, most likely by the serverless
+          // time limit. Without this the run just stops and the interface
+          // looks like nothing happened at all.
+          setRunError(
+            "The connection closed before the build finished, usually because the " +
+              "generation hit the time limit. Nothing was saved. Try a simpler " +
+              "description, or build it in two steps.",
+          );
+        }
       } catch (error) {
         if (!controller.signal.aborted) {
           setRunError(error instanceof Error ? error.message : "Generation failed");
         }
       } finally {
         setRunning(false);
+        setStartedAt(null);
         abortRef.current = null;
       }
     },
@@ -315,7 +355,16 @@ export function Workspace({
               ),
             )}
 
-            {running && <AgentTimeline events={liveEvents} running />}
+            {running && (
+              <div className="space-y-1.5">
+                <AgentTimeline events={liveEvents} running />
+                {startedAt !== null && (
+                  <div className="flex items-center gap-2 px-1">
+                    <Elapsed since={startedAt} />
+                  </div>
+                )}
+              </div>
+            )}
 
             {liveText && (
               <p className="px-0.5 text-sm leading-relaxed text-muted">{liveText}</p>
