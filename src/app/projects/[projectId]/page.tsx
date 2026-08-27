@@ -32,6 +32,8 @@ export default async function ProjectPage({
     <Workspace
       projectId={project.id}
       title={project.title}
+      slug={project.slug}
+      published={project.published}
       initialFiles={version?.files ?? {}}
       initialSchema={version?.appSchema ?? EMPTY_SCHEMA}
       initialTurns={history.map((message) => ({

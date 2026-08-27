@@ -29,7 +29,8 @@ Live app ──postMessage──▶ Bench API ──▶ records table ──▶ 
 | 1 | Data spine: projects, records, schema-derived validation | ✅ |
 | 2 | Agent loop: tool use, streaming, version commits | ✅ |
 | 3 | Live preview, postMessage bridge, chat + agent timeline | ✅ |
-| 4 | Publish, shared data, version history, self-healing | — |
+| 4 | Publish + shared data | ✅ |
+| 5 | Data view, version history, self-healing | — |
 
 ## Stack
 
@@ -38,6 +39,17 @@ Live app ──postMessage──▶ Bench API ──▶ records table ──▶ 
 - **Claude** (`claude-opus-5`) or **Kimi K3** (`kimi-k3`) for the generation agent
 - **Sandpack** as the preview runtime
 - **Tailwind 4**
+
+## Publishing
+
+Publishing a project puts the app at `/p/<slug>` for anyone with the link, with
+no chat, no file list and no account. Everyone who opens it reads and writes the
+same rows: add one in a second window and it appears in the first, because the
+injected `useCollection` hook polls.
+
+Publishing shares the *data*, never the source. Running the agent and flipping
+the flag stay owner-only, so a link recipient can use the tool but cannot
+rebuild it or unpublish it. `npm run smoke` asserts each of those boundaries.
 
 ## Model providers
 

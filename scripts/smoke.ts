@@ -12,9 +12,12 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../src/db";
 import { projects } from "../src/db/schema";
 import {
+  authorizeProject,
   commitVersion,
   createProject,
   getCurrentVersion,
+  ownedProject,
+  setPublished,
 } from "../src/lib/projects";
 import {
   countByCollection,
@@ -194,6 +197,32 @@ async function main() {
   });
   const afterRewrite = await listRecords({ projectId: project.id, collection: "customers" });
   check("records survive a version rewrite", afterRewrite.length === 3, afterRewrite.length);
+
+  console.log("\nPublishing");
+  const stranger = crypto.randomUUID();
+
+  await expectThrow("a stranger cannot reach an unpublished project", () =>
+    authorizeProject(project.id, stranger),
+  );
+
+  await setPublished(project.id, true);
+  const reached = await authorizeProject(project.id, stranger);
+  check("publishing opens the project to anyone", reached.id === project.id);
+  check(
+    "a published app is readable by a stranger",
+    (await listRecords({ projectId: project.id, collection: "customers" })).length > 0,
+  );
+
+  // Publishing shares the data, never the source: only the owner may run the
+  // agent or flip the flag back.
+  await expectThrow("a stranger still cannot act as the owner", () =>
+    ownedProject(project.id, stranger),
+  );
+
+  await setPublished(project.id, false);
+  await expectThrow("unpublishing revokes the stranger again", () =>
+    authorizeProject(project.id, stranger),
+  );
 
   console.log("\nIsolation");
   const other = await createProject({ title: "Other app", sessionId: crypto.randomUUID() });

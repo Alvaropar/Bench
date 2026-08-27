@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AgentTimeline } from "@/components/AgentTimeline";
 import { AppPreview } from "@/components/AppPreview";
+import { PublishToggle } from "@/components/PublishToggle";
 import { streamGeneration } from "@/lib/client/generate";
 import type { AppSchema, FileMap, ToolEvent } from "@/lib/types";
 
@@ -18,6 +19,8 @@ type Tab = "preview" | "files";
 export function Workspace({
   projectId,
   title,
+  slug,
+  published,
   initialFiles,
   initialSchema,
   initialTurns,
@@ -25,6 +28,8 @@ export function Workspace({
 }: {
   projectId: string;
   title: string;
+  slug: string;
+  published: boolean;
   initialFiles: FileMap;
   initialSchema: AppSchema;
   initialTurns: Turn[];
@@ -126,9 +131,13 @@ export function Workspace({
         <h1 className="truncate text-sm font-medium">{title}</h1>
         <div className="flex-1" />
         {schema.collections.length > 0 && (
-          <span className="font-mono text-[11px] text-muted">
+          <span className="hidden font-mono text-[11px] text-muted lg:inline">
             {schema.collections.map((c) => c.name).join(" · ")}
           </span>
+        )}
+        {/* Publishing only makes sense once there is an app to publish. */}
+        {filePaths.length > 0 && (
+          <PublishToggle projectId={projectId} slug={slug} initialPublished={published} />
         )}
       </header>
 
