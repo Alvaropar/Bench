@@ -5,7 +5,7 @@ import { createAsset } from "@/lib/assets";
 import { badRequest } from "@/lib/errors";
 import { readJson, route } from "@/lib/http";
 import { LIMITS, checkRateLimit, rateLimitKey } from "@/lib/rate-limit";
-import { getSessionId } from "@/lib/session";
+import { getViewer } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,12 +20,12 @@ const body = z.object({
 export const POST = route(
   async (request: Request, ctx: RouteContext<"/api/apps/[projectId]/assets">) => {
     const { projectId } = await ctx.params;
-    const sessionId = await getSessionId();
-    checkRateLimit(rateLimitKey("recordWrite", sessionId, request), LIMITS.recordWrite);
+    const viewer = await getViewer();
+    checkRateLimit(rateLimitKey("recordWrite", viewer.sessionId, request), LIMITS.recordWrite);
 
     // Uploading follows the same rule as writing a row: allowed for the owner,
     // and for anyone at all once the app is published.
-    await resolveApp(projectId, sessionId);
+    await resolveApp(projectId, viewer);
 
     const parsed = body.safeParse(await readJson(request));
     if (!parsed.success) throw badRequest("Invalid body", parsed.error.issues);

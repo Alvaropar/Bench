@@ -10,12 +10,13 @@
 import "./load-env";
 import { eq } from "drizzle-orm";
 import { getDb } from "../src/db";
-import { projects } from "../src/db/schema";
+import { projects, users } from "../src/db/schema";
 import {
   authorizeProject,
   commitVersion,
   createProject,
   getCurrentVersion,
+  getProject,
   listVersionSummaries,
   ownedProject,
   restoreVersion,
@@ -30,6 +31,14 @@ import {
   updateRecord,
 } from "../src/lib/records";
 import { appSchemaSchema } from "../src/lib/schema-validation";
+import {
+  adoptAnonymousProjects,
+  hashPassword,
+  ownsProject,
+  verifyPassword,
+  register,
+  type Viewer,
+} from "../src/lib/auth";
 import type { AppSchema } from "../src/lib/types";
 
 let passed = 0;
@@ -80,6 +89,7 @@ const CRM_SCHEMA: AppSchema = {
 
 async function main() {
   const sessionId = crypto.randomUUID();
+  const viewer: Viewer = { sessionId, user: null };
   console.log("\nBench data spine smoke test\n");
 
   console.log("AppSchema validation");
@@ -92,7 +102,7 @@ async function main() {
   );
 
   console.log("\nProject lifecycle");
-  const { project } = await createProject({ title: "Sales CRM", sessionId });
+  const { project } = await createProject({ title: "Sales CRM", viewer });
   check("project created with a slug", /^sales-crm-[a-z0-9]{6}$/.test(project.slug), project.slug);
   check("starts on an empty version", Boolean(project.currentVersionId));
 
@@ -201,7 +211,7 @@ async function main() {
   check("records survive a version rewrite", afterRewrite.length === 3, afterRewrite.length);
 
   console.log("\nPublishing");
-  const stranger = crypto.randomUUID();
+  const stranger: Viewer = { sessionId: crypto.randomUUID(), user: null };
 
   await expectThrow("a stranger cannot reach an unpublished project", () =>
     authorizeProject(project.id, stranger),
@@ -247,8 +257,70 @@ async function main() {
       beforeRestore.length,
   );
 
+  console.log("\nAccounts");
+
+  const hash = await hashPassword("correct horse battery");
+  check("password verifies", await verifyPassword("correct horse battery", hash));
+  check("wrong password rejected", !(await verifyPassword("wrong", hash)));
+  check(
+    "hashes are salted, so identical passwords differ",
+    hash !== (await hashPassword("correct horse battery")),
+  );
+  check("a malformed stored hash fails closed", !(await verifyPassword("x", "garbage")));
+
+  const accountSession = crypto.randomUUID();
+  const anonymous: Viewer = { sessionId: accountSession, user: null };
+  const owned = await createProject({ title: "Built before signing up", viewer: anonymous });
+
+  check(
+    "an anonymous project belongs to its browser",
+    ownsProject(anonymous, owned.project),
+  );
+  check(
+    "and not to another browser",
+    !ownsProject({ sessionId: crypto.randomUUID(), user: null }, owned.project),
+  );
+
+  const account = await register({
+    email: `smoke-${crypto.randomUUID()}@example.test`,
+    password: "a-good-password",
+    sessionId: accountSession,
+  });
+
+  const signedIn: Viewer = { sessionId: accountSession, user: account };
+  const adoptedProject = await getProject(owned.project.id);
+  check(
+    "registering adopts what the browser already built",
+    adoptedProject?.userId === account.id,
+  );
+  check(
+    "the account owns it afterwards",
+    Boolean(adoptedProject && ownsProject(signedIn, adoptedProject)),
+  );
+  check(
+    "a different browser signed into the same account still owns it",
+    Boolean(
+      adoptedProject &&
+        ownsProject({ sessionId: crypto.randomUUID(), user: account }, adoptedProject),
+    ),
+  );
+  check(
+    "the same browser signed out no longer owns it",
+    Boolean(adoptedProject && !ownsProject({ sessionId: accountSession, user: null }, adoptedProject)),
+  );
+
+  check(
+    "adopting again moves nothing",
+    (await adoptAnonymousProjects(accountSession, account.id)) === 0,
+  );
+
+  await getDb().delete(users).where(eq(users.id, account.id));
+
   console.log("\nIsolation");
-  const other = await createProject({ title: "Other app", sessionId: crypto.randomUUID() });
+  const other = await createProject({
+    title: "Other app",
+    viewer: { sessionId: crypto.randomUUID(), user: null },
+  });
   const otherRecords = await listRecords({
     projectId: other.project.id,
     collection: "customers",

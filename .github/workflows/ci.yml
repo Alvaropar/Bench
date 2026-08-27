@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npx eslint .
+
+      # Route and page types are generated, so this has to follow a build or a
+      # typegen pass rather than running first.
+      - name: Generate route types
+        run: npx next typegen
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Needs neither a database nor an API key: it exercises the agent's tool
+      # layer directly, including the guard against the system prompt and the
+      # injected runtime drifting apart.
+      - name: Agent tool layer
+        run: npm run tools:check
+
+      - name: Build
+        run: npm run build

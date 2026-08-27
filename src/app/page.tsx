@@ -1,24 +1,28 @@
 import Link from "next/link";
+import { AccountMenu } from "@/components/AccountMenu";
 import { NewProject } from "@/components/NewProject";
 import { runHealthChecks } from "@/lib/health";
 import { listProjects } from "@/lib/projects";
-import { getSessionId } from "@/lib/session";
+import { getViewer } from "@/lib/auth";
 import type { Project } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
-async function loadProjects(): Promise<Project[]> {
-  // A misconfigured deployment should still render the page that explains the
-  // misconfiguration, rather than falling over on the project list.
+/**
+ * A misconfigured deployment should still render the page that explains the
+ * misconfiguration, rather than falling over on the project list.
+ */
+async function loadState() {
   try {
-    return await listProjects(await getSessionId());
+    const viewer = await getViewer();
+    return { viewer, projects: await listProjects(viewer) };
   } catch {
-    return [];
+    return { viewer: null, projects: [] as Project[] };
   }
 }
 
 export default async function Home() {
-  const [checks, projects] = await Promise.all([runHealthChecks(), loadProjects()]);
+  const [checks, { viewer, projects }] = await Promise.all([runHealthChecks(), loadState()]);
   const broken = checks.filter((check) => !check.ok);
   const provider = checks.find((check) => check.name === "Model provider");
 
@@ -27,10 +31,28 @@ export default async function Home() {
       <header className="flex items-center gap-3 px-6 py-4">
         <span className="text-sm font-semibold tracking-tight">Bench</span>
         {provider?.ok && (
-          <span className="flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted">
+          <span className="hidden items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted sm:flex">
             <span className="size-1.5 rounded-full bg-ok" />
             {provider.detail}
           </span>
+        )}
+
+        <div className="flex-1" />
+
+        {viewer?.user ? (
+          <AccountMenu email={viewer.user.email} />
+        ) : (
+          <div className="flex items-center gap-2">
+            <Link href="/signin" className="text-[13px] text-muted hover:text-foreground">
+              Sign in
+            </Link>
+            <Link
+              href="/signin?mode=register"
+              className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted transition-colors hover:border-border-strong hover:text-foreground"
+            >
+              Create account
+            </Link>
+          </div>
         )}
       </header>
 
@@ -65,9 +87,20 @@ export default async function Home() {
 
         {projects.length > 0 && (
           <section className="space-y-2.5">
-            <h2 className="text-[11px] font-medium uppercase tracking-wider text-faint">
-              Your apps
-            </h2>
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="text-[11px] font-medium uppercase tracking-wider text-faint">
+                Your apps
+              </h2>
+              {!viewer?.user && (
+                <span className="text-[11px] text-faint">
+                  Saved to this browser ·{" "}
+                  <Link href="/signin?mode=register" className="text-accent hover:text-accent-strong">
+                    create an account
+                  </Link>{" "}
+                  to keep them
+                </span>
+              )}
+            </div>
             <ul className="space-y-1.5">
               {projects.map((project) => (
                 <li key={project.id}>

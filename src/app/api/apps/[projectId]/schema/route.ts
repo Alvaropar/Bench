@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { resolveApp } from "@/lib/app-context";
 import { route } from "@/lib/http";
 import { countByCollection } from "@/lib/records";
-import { getSessionId } from "@/lib/session";
+import { getViewer } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic";
 export const GET = route(
   async (_request: Request, ctx: RouteContext<"/api/apps/[projectId]/schema">) => {
     const { projectId } = await ctx.params;
-    const sessionId = await getSessionId();
-    const { project, schema } = await resolveApp(projectId, sessionId);
+    const viewer = await getViewer();
+    const { project, schema } = await resolveApp(projectId, viewer);
 
     return NextResponse.json({
       schema,

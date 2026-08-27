@@ -6,7 +6,7 @@ import { ApiError, badRequest, notFound } from "@/lib/errors";
 import { readJson, route } from "@/lib/http";
 import { getCurrentVersion, ownedProject } from "@/lib/projects";
 import { LIMITS, checkRateLimit, rateLimitKey } from "@/lib/rate-limit";
-import { getSessionId } from "@/lib/session";
+import { getViewer } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,15 +18,15 @@ const body = z.object({ message: z.string().min(1).max(4_000) });
 export const POST = route(
   async (request: Request, ctx: RouteContext<"/api/projects/[projectId]/generate">) => {
     const { projectId } = await ctx.params;
-    const sessionId = await getSessionId();
+    const viewer = await getViewer();
 
     // Checked before any work: a generation costs real money, and this endpoint
     // is reachable by anyone who can create a project.
-    checkRateLimit(rateLimitKey("generate", sessionId, request), LIMITS.generate);
+    checkRateLimit(rateLimitKey("generate", viewer.sessionId, request), LIMITS.generate);
 
     // Publishing opens a project's *data*, never its source. Only the owner
     // can put the agent to work on it.
-    const project = await ownedProject(projectId, sessionId);
+    const project = await ownedProject(projectId, viewer);
 
     const parsed = body.safeParse(await readJson(request));
     if (!parsed.success) throw badRequest("Invalid body", parsed.error.issues);

@@ -9,7 +9,7 @@ import {
   setPublished,
 } from "@/lib/projects";
 import { countByCollection } from "@/lib/records";
-import { getSessionId } from "@/lib/session";
+import { getViewer, ownsProject } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,8 +19,8 @@ const patchBody = z.object({ published: z.boolean() });
 export const GET = route(
   async (_request: Request, ctx: RouteContext<"/api/projects/[projectId]">) => {
     const { projectId } = await ctx.params;
-    const sessionId = await getSessionId();
-    const project = await authorizeProject(projectId, sessionId);
+    const viewer = await getViewer();
+    const project = await authorizeProject(projectId, viewer);
 
     const [version, versionList, counts] = await Promise.all([
       getCurrentVersion(project),
@@ -33,7 +33,7 @@ export const GET = route(
       version,
       versions: versionList.map(({ files: _files, ...meta }) => meta),
       recordCounts: counts,
-      isOwner: project.sessionId === sessionId,
+      isOwner: ownsProject(viewer, project),
     });
   },
 );
@@ -41,10 +41,10 @@ export const GET = route(
 export const PATCH = route(
   async (request: Request, ctx: RouteContext<"/api/projects/[projectId]">) => {
     const { projectId } = await ctx.params;
-    const sessionId = await getSessionId();
+    const viewer = await getViewer();
     // Publishing opens the project's data to anyone with the link, so it stays
     // owner-only even though reads and writes afterwards are not.
-    await ownedProject(projectId, sessionId);
+    await ownedProject(projectId, viewer);
 
     const parsed = patchBody.safeParse(await readJson(request));
     if (!parsed.success) throw badRequest("Invalid body", parsed.error.issues);

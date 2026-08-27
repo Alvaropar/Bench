@@ -1,5 +1,7 @@
 # Bench
 
+[![CI](https://github.com/Alvaropar/Bench/actions/workflows/ci.yml/badge.svg)](https://github.com/Alvaropar/Bench/actions/workflows/ci.yml)
+
 **Describe an internal tool. Get a working one your team can actually use.**
 
 Bench is an agent-driven app generator. You describe a tool in plain language
@@ -203,6 +205,7 @@ for self-correction.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run db:generate` | Emit a SQL migration from the schema |
 | `npm run db:migrate` | Apply the checked-in migrations (non-interactive) |
+| `npm run smoke` | Data spine + accounts against a real database |
 | `npm run db:push` | Diff the schema straight onto the database (prompts) |
 | `npm run db:studio` | Browse the database |
 

@@ -1,14 +1,15 @@
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { projects, versions } from "@/db/schema";
 import type { Project, Version } from "@/db/schema";
+import { ownedByViewer, ownsProject, type Viewer } from "@/lib/auth";
 import { forbidden, notFound } from "@/lib/errors";
 import { slugify } from "@/lib/ids";
 import { EMPTY_SCHEMA, type AppSchema, type FileMap } from "@/lib/types";
 
 export async function createProject(input: {
   title: string;
-  sessionId: string;
+  viewer: Viewer;
 }): Promise<{ project: Project; version: Version }> {
   const db = getDb();
 
@@ -17,7 +18,8 @@ export async function createProject(input: {
     .values({
       slug: slugify(input.title),
       title: input.title,
-      sessionId: input.sessionId,
+      sessionId: input.viewer.sessionId,
+      userId: input.viewer.user?.id ?? null,
     })
     .returning();
 
@@ -42,11 +44,11 @@ export async function createProject(input: {
   return { project: updated, version };
 }
 
-export async function listProjects(sessionId: string): Promise<Project[]> {
+export async function listProjects(viewer: Viewer): Promise<Project[]> {
   return getDb()
     .select()
     .from(projects)
-    .where(eq(projects.sessionId, sessionId))
+    .where(ownedByViewer(viewer))
     .orderBy(desc(projects.updatedAt));
 }
 
@@ -119,22 +121,23 @@ export async function commitVersion(input: {
   return version;
 }
 
-export type Access = "read" | "write";
-
 /**
  * Published apps are readable and writable by anyone — that IS the product:
  * you send a teammate a link and they add a row you can see. Unpublished
- * projects stay scoped to the session that created them.
+ * projects stay with their owner.
+ *
+ * Read and write are deliberately not distinguished: a published app whose rows
+ * you could read but not add to would not be the product. If that ever changes,
+ * the split belongs here.
  */
 export async function authorizeProject(
   projectId: string,
-  sessionId: string,
-  _access: Access = "write",
+  viewer: Viewer,
 ): Promise<Project> {
   const project = await getProject(projectId);
   if (!project) throw notFound("Project not found");
   if (project.published) return project;
-  if (project.sessionId !== sessionId) throw forbidden();
+  if (!ownsProject(viewer, project)) throw forbidden();
   return project;
 }
 
@@ -152,14 +155,12 @@ export async function setPublished(
 
 export async function ownedProject(
   projectId: string,
-  sessionId: string,
+  viewer: Viewer,
 ): Promise<Project> {
-  const [project] = await getDb()
-    .select()
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.sessionId, sessionId)))
-    .limit(1);
-  if (!project) throw notFound("Project not found");
+  const project = await getProject(projectId);
+  // A project someone else owns is indistinguishable from one that is not
+  // there: confirming it exists would leak the id space.
+  if (!project || !ownsProject(viewer, project)) throw notFound("Project not found");
   return project;
 }
 

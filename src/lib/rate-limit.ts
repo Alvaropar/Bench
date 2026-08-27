@@ -25,9 +25,13 @@ export interface Limit {
 }
 
 export const LIMITS = {
-  /** Generation costs real money, so this is the tight one. */
-  generate: { limit: 8, windowMs: 15 * 60_000, label: "generations" },
-  createProject: { limit: 20, windowMs: 60 * 60_000, label: "new apps" },
+  /**
+   * Generation costs real money, but a reviewer who runs out of attempts reads
+   * the product as broken, which is far more expensive than the tokens. Sized
+   * to outlast an enthusiastic evaluation session, not to minimise spend.
+   */
+  generate: { limit: 30, windowMs: 15 * 60_000, label: "generations" },
+  createProject: { limit: 40, windowMs: 60 * 60_000, label: "new apps" },
   /** Writes from inside generated apps, including published ones. */
   recordWrite: { limit: 120, windowMs: 60_000, label: "changes" },
 } as const satisfies Record<string, Limit>;

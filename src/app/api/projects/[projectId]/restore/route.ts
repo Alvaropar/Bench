@@ -3,7 +3,7 @@ import { z } from "zod";
 import { badRequest } from "@/lib/errors";
 import { readJson, route } from "@/lib/http";
 import { listVersionSummaries, ownedProject, restoreVersion, toVersionSummary } from "@/lib/projects";
-import { getSessionId } from "@/lib/session";
+import { getViewer } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,10 +13,10 @@ const body = z.object({ versionId: z.uuid() });
 export const POST = route(
   async (request: Request, ctx: RouteContext<"/api/projects/[projectId]/restore">) => {
     const { projectId } = await ctx.params;
-    const sessionId = await getSessionId();
+    const viewer = await getViewer();
 
     // Restoring rewrites what a published link serves, so it stays owner-only.
-    await ownedProject(projectId, sessionId);
+    await ownedProject(projectId, viewer);
 
     const parsed = body.safeParse(await readJson(request));
     if (!parsed.success) throw badRequest("Invalid body", parsed.error.issues);

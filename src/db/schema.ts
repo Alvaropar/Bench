@@ -10,12 +10,44 @@ import {
 } from "drizzle-orm/pg-core";
 import type { AppSchema, FileMap, ToolEvent } from "@/lib/types";
 
+/**
+ * Registered accounts.
+ *
+ * Anonymous sessions are still how a first visit works -- signing up should
+ * never be the price of trying the product. An account is what makes your apps
+ * reachable from a second browser, and on sign-in the projects created
+ * anonymously in this browser are adopted into it.
+ */
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Binds an existing browser session to an account.
+ *
+ * Reuses the session cookie that already exists rather than issuing a second
+ * one, so there is no signing secret to configure and signing out is a row
+ * delete rather than a token that stays valid until it expires.
+ */
+export const authSessions = pgTable("auth_sessions", {
+  sessionId: text("session_id").primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   slug: text("slug").notNull().unique(),
   title: text("title").notNull(),
-  /** anonymous owner: a signed cookie, no auth flow needed for the demo */
+  /** The browser that created it. Always set, even for signed-in users. */
   sessionId: text("session_id").notNull(),
+  /** Set once the owner has an account; nullable while a project is anonymous. */
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
   published: boolean("published").notNull().default(false),
   /**
    * Deliberately NOT a foreign key: projects <-> versions would be a circular
@@ -105,6 +137,7 @@ export const assets = pgTable(
   (t) => [index("assets_project_idx").on(t.projectId, t.createdAt)],
 );
 
+export type User = typeof users.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type Version = typeof versions.$inferSelect;
 export type Message = typeof messages.$inferSelect;

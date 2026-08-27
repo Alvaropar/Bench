@@ -1,3 +1,4 @@
+import type { Viewer } from "@/lib/auth";
 import { notFound } from "@/lib/errors";
 import { authorizeProject, getCurrentVersion } from "@/lib/projects";
 import type { Project } from "@/db/schema";
@@ -10,9 +11,9 @@ import type { AppSchema } from "@/lib/types";
  */
 export async function resolveApp(
   projectId: string,
-  sessionId: string,
+  viewer: Viewer,
 ): Promise<{ project: Project; schema: AppSchema }> {
-  const project = await authorizeProject(projectId, sessionId);
+  const project = await authorizeProject(projectId, viewer);
   const version = await getCurrentVersion(project);
   if (!version) throw notFound("Project has no version yet");
   return { project, schema: version.appSchema };
