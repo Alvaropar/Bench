@@ -11,7 +11,12 @@
  */
 import { SCAFFOLD_PATHS, assembleFiles, MAX_FILES } from "../src/lib/agent/contract";
 import { SYSTEM_PROMPT } from "../src/lib/agent/prompt";
-import { executeTool, type AgentState } from "../src/lib/agent/tools";
+import { TOOL_SPECS, executeTool, type AgentState } from "../src/lib/agent/tools";
+import {
+  ToolCallAccumulator,
+  toOpenAIMessages,
+} from "../src/lib/agent/providers/moonshot";
+import { PROVIDER_IDS, isProviderId } from "../src/lib/agent/providers";
 import { UI_SOURCE } from "../src/lib/agent/ui-kit";
 import { DB_CLIENT_SOURCE } from "../src/lib/agent/db-client";
 import { EMPTY_SCHEMA } from "../src/lib/types";
@@ -261,6 +266,92 @@ console.log("\nBench agent tool layer\n");
     "db client is importable as ./bench/db",
     "bench/db.ts" in assembled && assembled["bench/db.ts"].includes("useCollection"),
   );
+}
+
+// ------------------------------------------------------- provider adapters
+{
+  check(
+    "every tool spec carries a name, description and parameters",
+    TOOL_SPECS.every(
+      (spec) => spec.name && spec.description && typeof spec.parameters === "object",
+    ),
+  );
+
+  // The failure this guards: arguments arrive as JSON fragments, so parsing any
+  // single chunk yields truncated JSON.
+  const accumulator = new ToolCallAccumulator();
+  accumulator.add({ index: 0, id: "call_a", function: { name: "write_", arguments: '{"pa' } });
+  accumulator.add({ index: 0, function: { name: "file", arguments: 'th":"App.tsx",' } });
+  accumulator.add({ index: 0, function: { arguments: '"content":"x"}' } });
+
+  const [reassembled] = accumulator.finish();
+  check("fragmented tool name is reassembled", reassembled.name === "write_file", reassembled.name);
+  check(
+    "fragmented arguments parse once complete",
+    JSON.stringify(reassembled.input) === '{"path":"App.tsx","content":"x"}',
+    reassembled.input,
+  );
+  check("id from the first fragment is kept", reassembled.id === "call_a");
+
+  const parallel = new ToolCallAccumulator();
+  parallel.add({ index: 1, id: "b", function: { name: "delete_file", arguments: '{"path":"B.tsx"}' } });
+  parallel.add({ index: 0, id: "a", function: { name: "write_file", arguments: '{"path":"A.tsx"}' } });
+  check(
+    "parallel calls come back in index order",
+    parallel.finish().map((call) => call.id).join() === "a,b",
+  );
+
+  const idless = new ToolCallAccumulator();
+  idless.add({ index: 0, function: { name: "set_schema", arguments: "{}" } });
+  check("a missing id is synthesised", idless.finish()[0].id === "call_0");
+
+  const broken = new ToolCallAccumulator();
+  broken.add({ index: 0, id: "x", function: { name: "write_file", arguments: '{"path":' } });
+  const brokenCall = broken.finish()[0];
+  check(
+    "truncated JSON degrades to a rejectable input, not a crash",
+    typeof brokenCall.input === "object" && brokenCall.input !== null,
+  );
+  const rejected = executeTool(freshState(), brokenCall.name, brokenCall.input);
+  check("and the executor rejects it with a readable message", Boolean(rejected.isError));
+
+  // Claude batches tool results into one message; OpenAI-compatible APIs need
+  // one message per call.
+  const mapped = toOpenAIMessages("SYS", [
+    { role: "user", text: "build it" },
+    {
+      role: "assistant",
+      text: "",
+      toolCalls: [{ id: "a", name: "write_file", input: { path: "App.tsx" } }],
+    },
+    {
+      role: "tool_results",
+      results: [
+        { id: "a", content: "Wrote App.tsx." },
+        { id: "b", content: "not found", isError: true },
+      ],
+    },
+  ]);
+
+  check("system prompt leads the message list", mapped[0].role === "system");
+  check(
+    "each tool result becomes its own message",
+    mapped.filter((message) => message.role === "tool").length === 2,
+  );
+  check(
+    "tool errors are marked in the content",
+    String(mapped.at(-1)?.content).startsWith("Error:"),
+    mapped.at(-1)?.content,
+  );
+  const assistant = mapped[2] as { tool_calls?: { function: { arguments: string } }[] };
+  check(
+    "assistant tool calls are serialised as JSON strings",
+    assistant.tool_calls?.[0].function.arguments === '{"path":"App.tsx"}',
+    assistant.tool_calls?.[0].function.arguments,
+  );
+
+  check("both providers are registered", PROVIDER_IDS.length === 2);
+  check("unknown provider ids are rejected", !isProviderId("gpt"));
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

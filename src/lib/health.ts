@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "@/db";
+import { PROVIDER_ENV_VAR, createProvider, resolveProviderId } from "@/lib/agent/providers";
 
 export type HealthCheck = { name: string; ok: boolean; detail?: string };
 
@@ -17,10 +18,16 @@ export async function runHealthChecks(): Promise<HealthCheck[]> {
     });
   }
 
+  const providerId = resolveProviderId();
+  const envVar = PROVIDER_ENV_VAR[providerId];
+  const configured = Boolean(process.env[envVar]);
+
   checks.push({
-    name: "Anthropic API key",
-    ok: Boolean(process.env.ANTHROPIC_API_KEY),
-    detail: process.env.ANTHROPIC_API_KEY ? undefined : "ANTHROPIC_API_KEY not set",
+    name: "Model provider",
+    ok: configured,
+    detail: configured
+      ? `${createProvider(providerId).label} (${createProvider(providerId).model})`
+      : `${envVar} not set — set it, or pick the other provider with BENCH_PROVIDER`,
   });
 
   return checks;

@@ -1,9 +1,13 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { ENTRY_FILE } from "@/lib/agent/contract";
 import type { StreamEvent } from "@/lib/agent/events";
 import { SYSTEM_PROMPT, buildContextMessage } from "@/lib/agent/prompt";
-import { TOOL_DEFINITIONS, executeTool, type AgentState } from "@/lib/agent/tools";
-import { misconfigured } from "@/lib/errors";
+import { createProvider } from "@/lib/agent/providers";
+import type {
+  ConversationMessage,
+  ProviderDelta,
+  ToolResult,
+} from "@/lib/agent/providers/types";
+import { TOOL_SPECS, executeTool, type AgentState } from "@/lib/agent/tools";
 import { appendMessage, listMessages } from "@/lib/messages";
 import { commitVersion } from "@/lib/projects";
 import { seedRecords } from "@/lib/records";
@@ -11,52 +15,36 @@ import type { Project, Version } from "@/db/schema";
 import type { FileMap, ToolEvent } from "@/lib/types";
 
 /**
- * A manual streaming loop rather than the SDK's beta tool runner.
+ * The agent loop, written against a provider interface rather than one SDK.
  *
- * The runner drives tool calls well, but this loop has to do three things it
- * does not expose cleanly: emit a domain event per tool call in order, hold
- * mutating file state across the whole run, and commit exactly one version at
- * the end. Owning the loop costs ~80 lines and buys all three.
+ * Nothing here knows whether it is talking to Claude or Kimi: the differences
+ * (content blocks vs. tool_calls, thinking vs. reasoning_content, the tool
+ * schema field name) all live in `providers/`.
+ *
+ * It is a manual loop rather than a vendor tool runner because it needs three
+ * things no runner exposes cleanly: ordered domain events per tool call, file
+ * state mutating across the whole run, and exactly one version commit at the end.
  */
-
-const MODEL = process.env.BENCH_MODEL ?? "claude-opus-5";
-
-/**
- * `xhigh` is the documented sweet spot for coding work, but generation latency
- * is the thing a reviewer actually feels — a three-minute wait reads as broken
- * no matter how good the output. `high` is the balance; BENCH_EFFORT=xhigh is
- * one environment variable away when quality matters more than the clock.
- */
-const EFFORT = (process.env.BENCH_EFFORT ?? "high") as
-  | "low"
-  | "medium"
-  | "high"
-  | "xhigh"
-  | "max";
 
 const MAX_ITERATIONS = 12;
-const MAX_TOKENS = 64_000;
 
-function textOf(message: Anthropic.Message): string {
-  return message.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("")
-    .trim();
-}
+/**
+ * `yield*` below forwards the provider's deltas straight to the SSE stream,
+ * which only works while every ProviderDelta is also a valid StreamEvent.
+ * Pinned here so adding a provider-only delta breaks the build rather than
+ * leaking an unhandled event shape to the browser.
+ */
+type _DeltasAreStreamEvents = ProviderDelta extends StreamEvent ? true : never;
+const _deltaCheck: _DeltasAreStreamEvents = true;
+void _deltaCheck;
 
 export async function* runAgent(input: {
   project: Project;
   version: Version;
   userMessage: string;
 }): AsyncGenerator<StreamEvent> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw misconfigured(
-      "ANTHROPIC_API_KEY is not set. Add it to .env.local and to your deployment's environment.",
-    );
-  }
+  const provider = createProvider();
 
-  const client = new Anthropic();
   const state: AgentState = {
     files: { ...input.version.files },
     schema: structuredClone(input.version.appSchema),
@@ -64,16 +52,20 @@ export async function* runAgent(input: {
   };
 
   const history = await listMessages(input.project.id);
-  const conversation: Anthropic.MessageParam[] = history
+  const conversation: ConversationMessage[] = history
     .filter((message) => message.content.trim().length > 0)
-    .map((message) => ({ role: message.role, content: message.content }));
+    .map((message) =>
+      message.role === "user"
+        ? { role: "user", text: message.content }
+        : { role: "assistant", text: message.content, toolCalls: [] },
+    );
 
-  // The context block carries the current files, so it belongs only on the
-  // turn being sent — repeating it every turn would bloat the conversation
-  // with stale copies of files that have since changed.
+  // The context block carries the current files, so it belongs only on the turn
+  // being sent — repeating it every turn would fill the conversation with stale
+  // copies of files that have since changed.
   conversation.push({
     role: "user",
-    content: [
+    text: [
       buildContextMessage({
         title: input.project.title,
         files: state.files,
@@ -92,67 +84,38 @@ export async function* runAgent(input: {
   let summary = "";
 
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-    const stream = client.messages.stream({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
+    const turn = yield* provider.streamTurn({
       system: SYSTEM_PROMPT,
-      thinking: { type: "adaptive", display: "summarized" },
-      output_config: { effort: EFFORT },
-      tools: TOOL_DEFINITIONS,
       messages: conversation,
+      tools: TOOL_SPECS,
     });
 
-    for await (const event of stream) {
-      if (event.type !== "content_block_delta") continue;
-      if (event.delta.type === "thinking_delta") {
-        yield { type: "thinking", text: event.delta.thinking };
-      } else if (event.delta.type === "text_delta") {
-        yield { type: "text", text: event.delta.text };
-      }
+    if (turn.stopReason === "refusal") {
+      throw new Error("The model declined this request. Try describing the tool differently.");
     }
 
-    const message = await stream.finalMessage();
-
-    if (message.stop_reason === "refusal") {
-      throw new Error(
-        "The model declined this request. Try describing the tool differently.",
-      );
-    }
-
-    if (message.stop_reason === "end_turn" || message.stop_reason === "max_tokens") {
-      summary = textOf(message);
+    if (turn.toolCalls.length === 0) {
+      summary = turn.text;
       break;
     }
 
-    const toolUses = message.content.filter(
-      (block): block is Anthropic.ToolUseBlock => block.type === "tool_use",
-    );
+    conversation.push({
+      role: "assistant",
+      text: turn.text,
+      toolCalls: turn.toolCalls,
+    });
 
-    if (toolUses.length === 0) {
-      summary = textOf(message);
-      break;
-    }
-
-    conversation.push({ role: "assistant", content: message.content });
-
-    const results: Anthropic.ToolResultBlockParam[] = [];
-    for (const toolUse of toolUses) {
-      const outcome = executeTool(state, toolUse.name, toolUse.input);
+    const results: ToolResult[] = [];
+    for (const call of turn.toolCalls) {
+      const outcome = executeTool(state, call.name, call.input);
       if (outcome.event) {
         timeline.push(outcome.event);
         yield { type: "tool", event: outcome.event };
       }
-      results.push({
-        type: "tool_result",
-        tool_use_id: toolUse.id,
-        content: outcome.result,
-        is_error: outcome.isError,
-      });
+      results.push({ id: call.id, content: outcome.result, isError: outcome.isError });
     }
 
-    // All results in one user message: splitting them across several messages
-    // silently teaches the model to stop batching tool calls.
-    conversation.push({ role: "user", content: results });
+    conversation.push({ role: "tool_results", results });
   }
 
   const problem = validateOutput(state.files, state.schema.collections.length);
@@ -166,8 +129,8 @@ export async function* runAgent(input: {
     label: input.userMessage.slice(0, 80),
   });
 
-  // Seeds land only now, so a run that failed halfway leaves no rows behind
-  // for an app that was never saved.
+  // Seeds land only now, so a run that failed halfway leaves no rows behind for
+  // an app that was never saved.
   let seededRows = 0;
   for (const seed of state.pendingSeeds) {
     seededRows += await seedRecords({

@@ -35,9 +35,32 @@ Live app ──postMessage──▶ Bench API ──▶ records table ──▶ 
 
 - **Next.js 16** (App Router) on Vercel
 - **Neon Postgres** + **Drizzle ORM**
-- **Anthropic SDK** with tool use for the generation agent
+- **Claude** (`claude-opus-5`) or **Kimi K3** (`kimi-k3`) for the generation agent
 - **Sandpack** as the preview runtime
 - **Tailwind 4**
+
+## Model providers
+
+The agent loop is provider-swappable. Nothing above `src/lib/agent/providers/`
+knows which model is running — the tool executors, schema validation, runtime
+contract, SSE events and UI are all model-agnostic.
+
+| | Claude | Kimi K3 |
+| --- | --- | --- |
+| Env var | `ANTHROPIC_API_KEY` | `MOONSHOT_API_KEY` |
+| Default model | `claude-opus-5` | `kimi-k3` |
+| Wire format | Messages API | OpenAI-compatible |
+| Reasoning stream | `thinking` blocks | `reasoning_content` deltas |
+| Effort levels | low–max (5) | low / high / max |
+
+Set the key for whichever you want; if only one is present it is picked
+automatically, and `BENCH_PROVIDER` overrides. Adding a third provider means
+implementing one interface — `streamTurn` — in `src/lib/agent/providers/`.
+
+The awkward part of the OpenAI-compatible path is that tool arguments arrive as
+JSON *fragments* keyed by index across many chunks; parsing any single chunk
+yields truncated JSON. `ToolCallAccumulator` handles reassembly and is covered
+by tests that need no network.
 
 ## Key design decisions
 

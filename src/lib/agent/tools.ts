@@ -1,4 +1,3 @@
-import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { MAX_FILE_BYTES, MAX_FILES, validatePath } from "@/lib/agent/contract";
 import {
@@ -7,24 +6,29 @@ import {
   findCollection,
   formatIssues,
 } from "@/lib/schema-validation";
+import type { ToolSpec } from "@/lib/agent/providers/types";
 import type { AppSchema, FileMap, ToolEvent } from "@/lib/types";
 
 /**
- * Tool definitions are deliberately not `strict: true`.
+ * Tool definitions, in a provider-neutral shape.
  *
- * seed_data's rows are free-form by nature (their shape comes from the schema
- * the agent just declared), which a closed JSON Schema cannot express. Every
- * input is validated with zod instead — and those messages are better than a
- * schema rejection, because they name the offending field and go straight back
- * to the model as the correction signal.
+ * Each provider maps `parameters` onto its own wire format — `input_schema` for
+ * Anthropic, `function.parameters` for OpenAI-compatible endpoints like Kimi.
+ *
+ * Deliberately not using strict/structured tool schemas: seed_data's rows are
+ * free-form by nature (their shape comes from the schema the agent just
+ * declared), which a closed JSON Schema cannot express. Every input is
+ * validated with zod instead — and those messages are better than a schema
+ * rejection, because they name the offending field and go straight back to the
+ * model as the correction signal.
  */
-export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
+export const TOOL_SPECS: ToolSpec[] = [
   {
     name: "set_schema",
     description:
       "Declare the app's data model. Must be called before any data can be stored. " +
       "Calling it again replaces the entire schema; existing rows are left untouched.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         collections: {
@@ -80,7 +84,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     name: "write_file",
     description:
       "Create a file or replace its entire contents. Use edit_file for a targeted change to a file that already exists.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         path: {
@@ -96,7 +100,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     name: "edit_file",
     description:
       "Replace one exact occurrence of a string in an existing file. old_string must appear exactly once.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         path: { type: "string" },
@@ -112,7 +116,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "delete_file",
     description: "Remove a file that is no longer needed.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: { path: { type: "string" } },
       required: ["path"],
@@ -123,7 +127,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     description:
       "Insert realistic starter rows into a collection so the app does not open empty. " +
       "Each row is an object whose keys are the declared field names.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         collection: { type: "string" },
