@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 const ROADMAP = [
   { phase: "0", label: "Deploy spine — Next.js + Neon + schema", done: true },
-  { phase: "1", label: "Data spine � projects, records, schema validation", done: true },
+  { phase: "1", label: "Data spine — projects, records, validation", done: true },
   { phase: "2", label: "Agent loop with tool use", done: false },
   { phase: "3", label: "Live preview + injected db SDK", done: false },
   { phase: "4", label: "Publish, shared data, version history", done: false },
@@ -18,7 +18,7 @@ export default async function Home() {
       <header className="space-y-4">
         <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs text-muted">
           <span className="size-1.5 rounded-full bg-accent" />
-          Phase 0 · deploy spine
+          Phase 1 · data spine
         </div>
         <h1 className="text-4xl font-semibold tracking-tight">Bench</h1>
         <p className="max-w-xl text-lg leading-relaxed text-muted">
