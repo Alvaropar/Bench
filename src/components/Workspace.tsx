@@ -278,8 +278,10 @@ export function Workspace({
         )}
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <section className="flex w-[380px] shrink-0 flex-col border-r border-border xl:w-[420px]">
+      {/* Stacks below lg: a fixed-width sidebar next to flex-1 leaves the
+          preview zero width on a phone, which hides the generated app entirely. */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <section className="flex h-[45vh] w-full shrink-0 flex-col border-b border-border lg:h-auto lg:w-[380px] lg:border-b-0 lg:border-r xl:w-[420px]">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5">
             {turns.length === 0 && !running && (
               <div className="rounded-xl border border-dashed border-border px-4 py-5">
