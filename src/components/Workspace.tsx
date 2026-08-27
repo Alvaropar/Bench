@@ -489,6 +489,13 @@ export function Workspace({
                 slug={slug}
                 files={files}
                 schema={schema}
+                disabled={running}
+                onSaved={(result) => {
+                  setFiles(result.files);
+                  setSchema(result.schema);
+                  setVersions(result.versions);
+                  setCurrentVersionId(result.currentVersionId);
+                }}
               />
             )}
           </div>

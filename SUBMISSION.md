@@ -174,7 +174,7 @@ This is only findable by running the thing.
 | Near-live collaboration (~1s) | ✅ |
 | Click-to-edit in the preview | ✅ |
 | Accounts: register, sign in, cross-device | ✅ |
-| File tree, code viewer, download as a runnable project | ✅ |
+| File tree, in-browser editing, download as a runnable project | ✅ |
 
 ### Verified, not just written
 
@@ -218,9 +218,9 @@ This is only findable by running the thing.
 - **The preview depends on a remote bundler** (Sandpack). It buys back several
   hours versus hand-rolling an iframe bundler; the cost is a third-party
   dependency in the critical path.
-- **Generated source is read-only in the browser.** You can browse it, and you
-  can download the whole project and edit it locally, but there is no editor
-  here.
+- **The editor is a textarea.** No syntax highlighting, no autocomplete: a real
+  code editor is a megabyte-scale dependency, and edits here are corrections to
+  agent output rather than a place to write an app from scratch.
 - **No toolchain in the browser.** Bench never runs `npm install`, a linter or a
   bundler; the preview compiles in the sandbox and that is the only build step.
   The exported project has a real one (`tsc --noEmit && vite build`), it just
@@ -256,8 +256,8 @@ In priority order, and why:
    matters more than actually making it faster.
 4. **A shared rate-limit store and per-project token budgets.** Needed before
    this could be public rather than demoed.
-5. **An in-browser editor.** The tree and viewer are there; making a file
-   editable and committing the result as a version is a small step from here.
+5. **Syntax highlighting in the editor.** Editing works; reading a 15,000
+   character file in one colour is the part that hurts.
 
 I would not add more generation *breadth* before doing 1 and 2. The narrow,
 reliable version is worth more than a wider one that works sometimes.

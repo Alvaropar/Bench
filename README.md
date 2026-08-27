@@ -75,7 +75,9 @@ swapping in a shared store means changing only that one file.
 ## Taking an app with you
 
 The Files tab browses the generated source as a tree, and switches between what
-the agent wrote and the full project around it. **Download .zip** produces a
+the agent wrote and the full project around it. Files the agent owns are
+editable in place — Cmd/Ctrl+S saves, and the result becomes a version like any
+other, validated exactly as the agent's own writes are. **Download .zip** produces a
 standalone Vite project: `npm install && npm run dev` and it runs on your
 machine, with your rows baked in as a seed.
 

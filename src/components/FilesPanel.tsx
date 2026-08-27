@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { buildProjectFiles, buildProjectZip } from "@/lib/export/project";
+import type { VersionSummary } from "@/lib/projects";
 import type { AppSchema, FileMap } from "@/lib/types";
 
 /**
@@ -139,17 +140,29 @@ export function FilesPanel({
   slug,
   files,
   schema,
+  disabled,
+  onSaved,
 }: {
   projectId: string;
   title: string;
   slug: string;
   files: FileMap;
   schema: AppSchema;
+  /** True while a generation is running: editing underneath it would be lost. */
+  disabled?: boolean;
+  onSaved: (result: {
+    files: FileMap;
+    schema: AppSchema;
+    versions: VersionSummary[];
+    currentVersionId: string;
+  }) => void;
 }) {
   const [view, setView] = useState<"generated" | "project">("generated");
   const [selected, setSelected] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<{ path: string; content: string } | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const origin = typeof window === "undefined" ? "" : window.location.origin;
 
@@ -171,6 +184,42 @@ export function FilesPanel({
   }, [shown]);
 
   const active = selected && shown[selected] !== undefined ? selected : (paths[0] ?? null);
+
+  // Editing applies to the app's own source. The full-project view is derived
+  // from it, so editing there would be editing a rendering of the truth.
+  const editable = view === "generated" && Boolean(active) && !disabled;
+  const content = draft && draft.path === active ? draft.content : active ? shown[active] : "";
+  const isDirty = Boolean(active) && draft?.path === active && draft.content !== shown[active!];
+
+  async function save() {
+    if (!active || !isDirty || !draft) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/files`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: { ...files, [active]: draft.content },
+          label: `Edited ${active}`,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Could not save");
+
+      onSaved({
+        files: result.files,
+        schema: result.schema,
+        versions: result.versions,
+        currentVersionId: result.version.id,
+      });
+      setDraft(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function download() {
     setDownloading(true);
@@ -260,12 +309,61 @@ export function FilesPanel({
               <div className="flex shrink-0 items-baseline gap-3 border-b border-border px-4 py-2">
                 <span className="truncate font-mono text-[12px] text-foreground">{active}</span>
                 <span className="shrink-0 font-mono text-[11px] text-faint">
-                  {shown[active].split("\n").length} lines
+                  {content.split("\n").length} lines
                 </span>
+
+                <div className="flex-1" />
+
+                {isDirty && (
+                  <>
+                    <button
+                      onClick={() => setDraft(null)}
+                      disabled={saving}
+                      className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50"
+                    >
+                      Revert
+                    </button>
+                    <button
+                      onClick={save}
+                      disabled={saving}
+                      className="shrink-0 rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-50"
+                    >
+                      {saving ? "Saving…" : "Save"}
+                    </button>
+                  </>
+                )}
               </div>
-              <pre className="min-h-0 flex-1 overflow-auto px-4 py-3 font-mono text-[12px] leading-relaxed text-muted">
-                <code>{shown[active]}</code>
-              </pre>
+              {editable ? (
+                <textarea
+                  value={content}
+                  spellCheck={false}
+                  onChange={(event) => setDraft({ path: active, content: event.target.value })}
+                  onKeyDown={(event) => {
+                    // Tab indents rather than moving focus out of the file.
+                    if (event.key === "Tab") {
+                      event.preventDefault();
+                      const target = event.currentTarget;
+                      const { selectionStart, selectionEnd, value } = target;
+                      setDraft({
+                        path: active,
+                        content: value.slice(0, selectionStart) + "  " + value.slice(selectionEnd),
+                      });
+                      requestAnimationFrame(() => {
+                        target.selectionStart = target.selectionEnd = selectionStart + 2;
+                      });
+                    }
+                    if ((event.metaKey || event.ctrlKey) && event.key === "s") {
+                      event.preventDefault();
+                      save();
+                    }
+                  }}
+                  className="min-h-0 flex-1 resize-none bg-transparent px-4 py-3 font-mono text-[12px] leading-relaxed text-foreground outline-none"
+                />
+              ) : (
+                <pre className="min-h-0 flex-1 overflow-auto px-4 py-3 font-mono text-[12px] leading-relaxed text-muted">
+                  <code>{content}</code>
+                </pre>
+              )}
             </>
           )}
         </div>

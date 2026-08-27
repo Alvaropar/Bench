@@ -82,3 +82,30 @@ export function assembleFiles(generated: FileMap, origin = ""): FileMap {
     ...generated,
   };
 }
+
+/**
+ * Validates a complete set of generated files.
+ *
+ * Shared by the agent's write_file tool and the manual editor, so a hand edit
+ * cannot put the project into a state the agent could not have produced.
+ */
+export function validateFileMap(files: FileMap): string | null {
+  const paths = Object.keys(files);
+
+  if (!paths.includes(ENTRY_FILE)) {
+    return `${ENTRY_FILE} is required — it is the app's entry point.`;
+  }
+  if (paths.length > MAX_FILES) {
+    return `An app can have at most ${MAX_FILES} files.`;
+  }
+
+  for (const path of paths) {
+    const problem = validatePath(path);
+    if (problem) return problem;
+    if (files[path].length > MAX_FILE_BYTES) {
+      return `"${path}" is over the ${MAX_FILE_BYTES} character limit.`;
+    }
+  }
+
+  return null;
+}

@@ -9,7 +9,12 @@
  * still agree: if the prompt documents a component the scaffold does not export,
  * generated apps break in a way the agent cannot see.
  */
-import { SCAFFOLD_PATHS, assembleFiles, MAX_FILES } from "../src/lib/agent/contract";
+import {
+  SCAFFOLD_PATHS,
+  assembleFiles,
+  validateFileMap,
+  MAX_FILES,
+} from "../src/lib/agent/contract";
 import { SYSTEM_PROMPT } from "../src/lib/agent/prompt";
 import { TOOL_SPECS, executeTool, type AgentState } from "../src/lib/agent/tools";
 import {
@@ -317,6 +322,31 @@ console.log("\nBench agent tool layer\n");
     richTextToPlain("<p>Hello <strong>there</strong></p><ul><li>one</li></ul>") ===
       "Hello there one",
     richTextToPlain("<p>Hello <strong>there</strong></p><ul><li>one</li></ul>"),
+  );
+
+  console.log("\nHand edits");
+
+  // The manual editor shares the agent's validation, so an edit cannot put
+  // the project into a state the agent could not have produced.
+  check(
+    "a valid file map is accepted",
+    validateFileMap({ "App.tsx": "export default () => null;" }) === null,
+  );
+  check(
+    "removing the entry point is rejected",
+    validateFileMap({ "components/Card.tsx": "x" }) !== null,
+  );
+  check(
+    "writing into the scaffold is rejected",
+    validateFileMap({ "App.tsx": "x", "bench/db.ts": "hacked" }) !== null,
+  );
+  check(
+    "path traversal is rejected",
+    validateFileMap({ "App.tsx": "x", "../escape.tsx": "x" }) !== null,
+  );
+  check(
+    "an oversized file is rejected",
+    validateFileMap({ "App.tsx": "x".repeat(70_000) }) !== null,
   );
 
 // ------------------------------------------------------- provider adapters
