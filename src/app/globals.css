@@ -31,3 +31,26 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
+
+/*
+ * Sandpack ships a fixed-height layout, which leaves the generated app in a
+ * short letterbox inside a full-height pane.
+ *
+ * It injects its stylesheet at runtime, after this one, so equal-specificity
+ * rules lose the cascade. Scoping under .bench-preview outranks its generated
+ * single-class selectors, and !important covers the inline heights it sets on
+ * the stack elements.
+ */
+.bench-preview .sp-wrapper,
+.bench-preview .sp-layout,
+.bench-preview .sp-layout > div,
+.bench-preview .sp-layout iframe {
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+}
+
+.bench-preview .sp-layout {
+  border: none;
+  border-radius: 0;
+}

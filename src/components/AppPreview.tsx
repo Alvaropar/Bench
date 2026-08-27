@@ -91,7 +91,7 @@ export function AppPreview({
   }
 
   return (
-    <div ref={containerRef} className="h-full">
+    <div ref={containerRef} className="bench-preview h-full min-h-0">
       <SandpackProvider
         template="react-ts"
         theme="light"
@@ -99,12 +99,15 @@ export function AppPreview({
         options={{ recompileMode: "delayed", recompileDelay: 400 }}
       >
         <ErrorReporter onError={onError} />
-        <SandpackLayout>
+        {/* Sandpack's layout is fixed-height by default, which leaves the
+            generated app in a short letterbox; see also the .sp-* overrides in
+            globals.css. */}
+        <SandpackLayout style={{ height: "100%", border: "none", borderRadius: 0 }}>
           <SandpackPreview
             showOpenInCodeSandbox={false}
             showRefreshButton
             showSandpackErrorOverlay
-            style={{ height: "100%", minHeight: 0 }}
+            style={{ height: "100%", minHeight: 0, flex: 1 }}
           />
         </SandpackLayout>
       </SandpackProvider>
