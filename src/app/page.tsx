@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 const ROADMAP = [
   { phase: "0", label: "Deploy spine â€” Next.js + Neon + schema", done: true },
-  { phase: "1", label: "Projects, messages, records API", done: false },
+  { phase: "1", label: "Data spine — projects, records, schema validation", done: true },
   { phase: "2", label: "Agent loop with tool use", done: false },
   { phase: "3", label: "Live preview + injected db SDK", done: false },
   { phase: "4", label: "Publish, shared data, version history", done: false },
