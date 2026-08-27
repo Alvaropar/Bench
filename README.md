@@ -52,6 +52,13 @@ contract, SSE events and UI are all model-agnostic.
 | Wire format | Messages API | OpenAI-compatible |
 | Reasoning stream | `thinking` blocks | `reasoning_content` deltas |
 | Effort levels | low–max (5) | low / high / max |
+| Default effort | `high` | `low` (see below) |
+
+Measured on the same prompt, K3 at `high` effort took **473s** and emitted about
+10,000 reasoning deltas; at `low` it took **112s** and produced an app of the
+same quality — same collections, same seeded rows, the same component kit used
+throughout. Since a serverless function is capped at 300s, `low` is the default
+for Kimi. Thinking cannot be disabled on K3, so this is less reasoning, not none.
 
 Set the key for whichever you want; if only one is present it is picked
 automatically, and `BENCH_PROVIDER` overrides. Adding a third provider means

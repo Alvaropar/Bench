@@ -17,16 +17,24 @@ const MAX_COMPLETION_TOKENS = 65_536;
  * K3 exposes low | high | max only, and thinking cannot be disabled. Bench's
  * shared BENCH_EFFORT vocabulary is Anthropic's five levels, so the two middle
  * values collapse onto the nearest thing K3 actually accepts.
+ *
+ * The default is "low" here, not the "high" the Anthropic provider uses.
+ * Measured on the same prompt: "high" took 473s and emitted ~10,000 reasoning
+ * deltas, past the 300s ceiling a serverless function gets; "low" took 112s and
+ * produced an app of the same quality — same collections, same seeded rows, the
+ * same component kit used throughout. Thinking is always on either way, so
+ * "low" is not "no reasoning", just less of it.
  */
 function reasoningEffort(): "low" | "high" | "max" {
-  switch (process.env.BENCH_EFFORT ?? "high") {
-    case "low":
-      return "low";
+  switch (process.env.BENCH_EFFORT) {
     case "max":
     case "xhigh":
       return "max";
-    default:
+    case "high":
+    case "medium":
       return "high";
+    default:
+      return "low";
   }
 }
 
