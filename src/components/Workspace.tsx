@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AgentTimeline } from "@/components/AgentTimeline";
 import { AppPreview } from "@/components/AppPreview";
+import { DataView } from "@/components/DataView";
 import { PublishToggle } from "@/components/PublishToggle";
 import { streamGeneration } from "@/lib/client/generate";
 import type { AppSchema, FileMap, ToolEvent } from "@/lib/types";
@@ -14,7 +15,7 @@ interface Turn {
   events?: ToolEvent[];
 }
 
-type Tab = "preview" | "files";
+type Tab = "preview" | "data" | "files";
 
 export function Workspace({
   projectId,
@@ -226,7 +227,7 @@ export function Workspace({
 
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-1 border-b border-border px-3 py-2">
-            {(["preview", "files"] as Tab[]).map((name) => (
+            {(["preview", "data", "files"] as Tab[]).map((name) => (
               <button
                 key={name}
                 onClick={() => setTab(name)}
@@ -238,6 +239,11 @@ export function Workspace({
                 {name === "files" && filePaths.length > 0 && (
                   <span className="ml-1.5 font-mono text-[11px] text-muted">
                     {filePaths.length}
+                  </span>
+                )}
+                {name === "data" && schema.collections.length > 0 && (
+                  <span className="ml-1.5 font-mono text-[11px] text-muted">
+                    {schema.collections.length}
                   </span>
                 )}
               </button>
@@ -253,6 +259,8 @@ export function Workspace({
           <div className="min-h-0 flex-1 overflow-hidden bg-surface">
             {tab === "preview" ? (
               <AppPreview projectId={projectId} files={files} onError={setPreviewError} />
+            ) : tab === "data" ? (
+              <DataView projectId={projectId} schema={schema} />
             ) : (
               <div className="h-full overflow-y-auto p-4">
                 {filePaths.length === 0 ? (
