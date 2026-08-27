@@ -189,20 +189,46 @@ export function Workspace({
   }, [initialPrompt]);
 
   const filePaths = Object.keys(files).sort();
+  const versionCount = versions.filter((version) => version.fileCount > 0).length;
+
+  const badges: Partial<Record<Tab, number>> = {
+    data: schema.collections.length,
+    files: filePaths.length,
+    history: versionCount,
+  };
 
   return (
-    <div className="flex h-screen flex-col">
-      <header className="flex items-center gap-4 border-b border-border px-5 py-3">
-        <Link href="/" className="text-sm text-muted hover:text-foreground">
-          ← Bench
+    <div className="flex h-screen flex-col bg-background">
+      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
+        <Link
+          href="/"
+          className="flex shrink-0 items-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground"
+        >
+          <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden>
+            <path
+              d="M10 3 5 8l5 5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Bench
         </Link>
-        <h1 className="truncate text-sm font-medium">{title}</h1>
-        <div className="flex-1" />
+
+        <span className="h-4 w-px shrink-0 bg-border" aria-hidden />
+
+        <h1 className="min-w-0 truncate text-sm font-medium">{title}</h1>
+
         {schema.collections.length > 0 && (
-          <span className="hidden font-mono text-[11px] text-muted lg:inline">
-            {schema.collections.map((c) => c.name).join(" · ")}
+          <span className="hidden shrink-0 rounded-full border border-border px-2 py-0.5 font-mono text-[11px] text-faint lg:inline">
+            {schema.collections.map((collection) => collection.name).join(" / ")}
           </span>
         )}
+
+        <div className="flex-1" />
+
         {/* Publishing only makes sense once there is an app to publish. */}
         {filePaths.length > 0 && (
           <PublishToggle projectId={projectId} slug={slug} initialPublished={published} />
@@ -210,127 +236,138 @@ export function Workspace({
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <section className="flex w-[400px] shrink-0 flex-col border-r border-border">
-          <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        <section className="flex w-[380px] shrink-0 flex-col border-r border-border xl:w-[420px]">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5">
             {turns.length === 0 && !running && (
-              <p className="text-sm text-muted">
-                Describe the tool you want. The agent designs the data model, builds the
-                interface, and fills it with realistic rows.
-              </p>
+              <div className="rounded-xl border border-dashed border-border px-4 py-5">
+                <p className="text-sm leading-relaxed text-muted">
+                  Describe the tool you want. The agent designs the data model, builds the
+                  interface, and fills it with realistic rows.
+                </p>
+              </div>
             )}
 
             {turns.map((turn, index) =>
               turn.role === "user" ? (
-                <div key={index} className="rounded-lg bg-surface-2 px-3 py-2 text-sm">
-                  {turn.content}
+                <div key={index} className="bench-rise">
+                  <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-faint">
+                    You
+                  </p>
+                  <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-sm leading-relaxed">
+                    {turn.content}
+                  </div>
                 </div>
               ) : (
-                <div key={index} className="space-y-2">
+                <div key={index} className="bench-rise space-y-2.5">
                   {turn.events && turn.events.length > 0 && (
                     <AgentTimeline events={turn.events} />
                   )}
                   {turn.content && (
-                    <p className="text-sm leading-relaxed text-muted">{turn.content}</p>
+                    <p className="px-0.5 text-sm leading-relaxed text-muted">{turn.content}</p>
                   )}
                 </div>
               ),
             )}
 
             {running && <AgentTimeline events={liveEvents} running />}
-            {liveText && <p className="text-sm leading-relaxed text-muted">{liveText}</p>}
+
+            {liveText && (
+              <p className="px-0.5 text-sm leading-relaxed text-muted">{liveText}</p>
+            )}
 
             {runError && (
-              <p className="rounded-lg border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">
+              <p className="rounded-xl border border-bad/30 bg-bad/[0.07] px-3.5 py-2.5 text-sm text-bad">
                 {runError}
               </p>
             )}
           </div>
 
           <form
-            className="border-t border-border p-3"
+            className="shrink-0 p-3"
             onSubmit={(event) => {
               event.preventDefault();
               submitManual(draft);
             }}
           >
-            <textarea
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  submitManual(draft);
+            <div className="rounded-xl border border-border bg-surface transition-colors focus-within:border-border-strong">
+              <textarea
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    submitManual(draft);
+                  }
+                }}
+                rows={2}
+                disabled={running}
+                placeholder={
+                  filePaths.length === 0
+                    ? "A CRM for a small sales team..."
+                    : "Add a dashboard with monthly revenue..."
                 }
-              }}
-              rows={3}
-              disabled={running}
-              placeholder={
-                filePaths.length === 0
-                  ? "A CRM for a small sales team…"
-                  : "Add a dashboard with monthly revenue…"
-              }
-              className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none placeholder:text-muted focus:border-accent disabled:opacity-60"
-            />
-            <div className="mt-2 flex items-center gap-2">
-              <button
-                type="submit"
-                disabled={running || !draft.trim()}
-                className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-background disabled:opacity-40"
-              >
-                {running ? "Building…" : "Send"}
-              </button>
-              {running && (
+                className="w-full resize-none bg-transparent px-3.5 pt-3 text-sm leading-relaxed outline-none placeholder:text-faint disabled:opacity-60"
+              />
+              <div className="flex items-center justify-end gap-2 px-3 pb-2.5">
+                {running && (
+                  <button
+                    type="button"
+                    onClick={stop}
+                    className="rounded-lg border border-border px-2.5 py-1 text-[13px] text-muted transition-colors hover:text-foreground"
+                  >
+                    Stop
+                  </button>
+                )}
                 <button
-                  type="button"
-                  onClick={stop}
-                  className="rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:text-foreground"
+                  type="submit"
+                  disabled={running || !draft.trim()}
+                  className="rounded-lg bg-accent px-3 py-1 text-[13px] font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-30"
                 >
-                  Stop
+                  {running ? "Building..." : "Send"}
                 </button>
-              )}
+              </div>
             </div>
           </form>
         </section>
 
         <section className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center gap-1 border-b border-border px-3 py-2">
-            {(["preview", "data", "files", "history"] as Tab[]).map((name) => (
-              <button
-                key={name}
-                onClick={() => setTab(name)}
-                className={`rounded-md px-2.5 py-1 text-sm capitalize ${
-                  tab === name ? "bg-surface-2 text-foreground" : "text-muted hover:text-foreground"
-                }`}
-              >
-                {name}
-                {name === "files" && filePaths.length > 0 && (
-                  <span className="ml-1.5 font-mono text-[11px] text-muted">
-                    {filePaths.length}
-                  </span>
-                )}
-                {name === "history" && versions.filter((v) => v.fileCount > 0).length > 0 && (
-                  <span className="ml-1.5 font-mono text-[11px] text-muted">
-                    {versions.filter((v) => v.fileCount > 0).length}
-                  </span>
-                )}
-                {name === "data" && schema.collections.length > 0 && (
-                  <span className="ml-1.5 font-mono text-[11px] text-muted">
-                    {schema.collections.length}
-                  </span>
-                )}
-              </button>
-            ))}
+          <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
+            <div className="flex shrink-0 items-center gap-0.5 rounded-lg bg-surface p-0.5">
+              {(["preview", "data", "files", "history"] as Tab[]).map((name) => (
+                <button
+                  key={name}
+                  onClick={() => setTab(name)}
+                  className={
+                    tab === name
+                      ? "rounded-[7px] bg-surface-3 px-2.5 py-1 text-[13px] capitalize text-foreground transition-colors"
+                      : "rounded-[7px] px-2.5 py-1 text-[13px] capitalize text-muted transition-colors hover:text-foreground"
+                  }
+                >
+                  {name}
+                  {(badges[name] ?? 0) > 0 && (
+                    <span className="ml-1.5 font-mono text-[10px] text-faint">
+                      {badges[name]}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
             <div className="flex-1" />
+
             {previewError && (
               <>
-                <span className="max-w-[380px] truncate text-xs text-bad" title={previewError}>
+                <span
+                  className="min-w-0 max-w-[420px] truncate text-xs text-bad"
+                  title={previewError}
+                >
                   {previewError}
                 </span>
                 {/* The automatic attempt is capped, so leave a manual way back. */}
                 <button
                   onClick={() => submitManual(FIX_PROMPT(previewError))}
                   disabled={running}
-                  className="shrink-0 rounded-md border border-bad/40 px-2 py-1 text-xs text-bad hover:bg-bad/10 disabled:opacity-50"
+                  className="shrink-0 rounded-lg border border-bad/40 px-2.5 py-1 text-xs text-bad transition-colors hover:bg-bad/10 disabled:opacity-50"
                 >
                   Fix it
                 </button>
@@ -361,11 +398,14 @@ export function Workspace({
                 {filePaths.length === 0 ? (
                   <p className="text-sm text-muted">No files yet.</p>
                 ) : (
-                  <ul className="space-y-1 font-mono text-[13px]">
+                  <ul className="space-y-0.5">
                     {filePaths.map((path) => (
-                      <li key={path} className="flex items-baseline justify-between gap-4">
-                        <span>{path}</span>
-                        <span className="text-[11px] text-muted">
+                      <li
+                        key={path}
+                        className="flex items-baseline justify-between gap-4 rounded-lg px-2.5 py-1.5 font-mono text-[13px] hover:bg-surface-2"
+                      >
+                        <span className="truncate">{path}</span>
+                        <span className="shrink-0 text-[11px] text-faint">
                           {files[path].length.toLocaleString()}
                         </span>
                       </li>

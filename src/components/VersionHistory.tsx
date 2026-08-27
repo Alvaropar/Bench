@@ -91,13 +91,13 @@ export function VersionHistory({
                   <button
                     onClick={() => restore(version.id)}
                     disabled={disabled || busy !== null}
-                    className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] text-muted hover:text-foreground disabled:opacity-40"
+                    className="shrink-0 rounded-lg border border-border px-2 py-0.5 text-[11px] text-muted transition-colors hover:border-border-strong hover:text-foreground disabled:opacity-40"
                   >
                     {busy === version.id ? "Restoring…" : "Restore"}
                   </button>
                 )}
               </div>
-              <div className="mt-1 flex gap-3 font-mono text-[11px] text-muted">
+              <div className="mt-1 flex gap-3 font-mono text-[11px] text-faint">
                 <span>{new Date(version.createdAt).toLocaleString()}</span>
                 <span>
                   {version.fileCount} {version.fileCount === 1 ? "file" : "files"}

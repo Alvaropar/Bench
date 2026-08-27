@@ -6,15 +6,31 @@ import { useState } from "react";
 /**
  * Verified starter prompts.
  *
- * Reviewers try the first thing they see, so the first thing they see should
- * be something known to produce a good app. All four describe tools whose data
- * the user enters — nothing here needs a live feed from the outside world.
+ * Reviewers try the first thing they see, so the first thing they see should be
+ * something known to produce a good app. All four describe tools whose data the
+ * user enters — nothing here needs a live feed from the outside world.
  */
 const STARTERS = [
-  "A CRM for a small sales team",
-  "An applicant tracker for a hiring pipeline",
-  "A bug log for a small product team",
-  "A team expense tracker with categories and approval status",
+  {
+    prompt: "A CRM for a small sales team",
+    title: "Sales CRM",
+    detail: "Pipeline stages, deal values, owners",
+  },
+  {
+    prompt: "An applicant tracker for a hiring pipeline",
+    title: "Applicant tracker",
+    detail: "Candidates, stages, interview notes",
+  },
+  {
+    prompt: "A bug log for a small product team",
+    title: "Bug log",
+    detail: "Severity, status, assignee",
+  },
+  {
+    prompt: "A team expense tracker with categories and approval status",
+    title: "Expense tracker",
+    detail: "Categories, amounts, approvals",
+  },
 ];
 
 function titleFrom(prompt: string): string {
@@ -53,12 +69,13 @@ export function NewProject() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <form
         onSubmit={(event) => {
           event.preventDefault();
           create(prompt);
         }}
+        className="group relative rounded-2xl border border-border bg-surface transition-colors focus-within:border-border-strong"
       >
         <textarea
           value={prompt}
@@ -71,32 +88,51 @@ export function NewProject() {
           }}
           rows={3}
           disabled={creating}
+          autoFocus
           placeholder="Describe the tool your team needs…"
-          className="w-full resize-none rounded-xl border border-border bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-accent disabled:opacity-60"
+          className="w-full resize-none rounded-2xl bg-transparent px-4 pt-4 pb-14 text-[15px] leading-relaxed outline-none placeholder:text-faint disabled:opacity-60"
         />
-        <button
-          type="submit"
-          disabled={creating || !prompt.trim()}
-          className="mt-3 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background disabled:opacity-40"
-        >
-          {creating ? "Creating…" : "Build it"}
-        </button>
+
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 flex items-center justify-between">
+          <span className="text-[11px] text-faint">
+            Enter to build · Shift+Enter for a new line
+          </span>
+          <button
+            type="submit"
+            disabled={creating || !prompt.trim()}
+            className="pointer-events-auto inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-[13px] font-medium text-background transition-opacity hover:bg-accent-strong disabled:opacity-30"
+          >
+            {creating ? "Creating…" : "Build it"}
+          </button>
+        </div>
       </form>
 
-      <div className="flex flex-wrap gap-2">
-        {STARTERS.map((starter) => (
-          <button
-            key={starter}
-            onClick={() => create(starter)}
-            disabled={creating}
-            className="rounded-full border border-border px-3 py-1.5 text-[13px] text-muted transition-colors hover:border-accent hover:text-foreground disabled:opacity-40"
-          >
-            {starter}
-          </button>
-        ))}
-      </div>
+      {error && (
+        <p className="rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad">
+          {error}
+        </p>
+      )}
 
-      {error && <p className="text-sm text-bad">{error}</p>}
+      <div>
+        <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wider text-faint">
+          Or start from one of these
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {STARTERS.map((starter) => (
+            <button
+              key={starter.prompt}
+              onClick={() => create(starter.prompt)}
+              disabled={creating}
+              className="group rounded-xl border border-border bg-surface px-3.5 py-3 text-left transition-colors hover:border-border-strong hover:bg-surface-2 disabled:opacity-40"
+            >
+              <span className="block text-sm font-medium transition-colors group-hover:text-accent">
+                {starter.title}
+              </span>
+              <span className="mt-0.5 block text-[12px] text-muted">{starter.detail}</span>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

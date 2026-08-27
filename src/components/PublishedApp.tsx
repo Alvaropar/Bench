@@ -18,11 +18,12 @@ export function PublishedApp({
 
   return (
     <div className="flex h-screen flex-col">
-      <header className="flex items-center gap-3 border-b border-border px-5 py-2.5">
+      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
         <h1 className="truncate text-sm font-medium">{title}</h1>
-        <span className="flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted">
+        <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-ok/30 bg-ok/10 px-2 py-0.5 text-[11px] text-ok">
           <span className="size-1.5 rounded-full bg-ok" />
-          Live — everyone with this link shares the same data
+          <span className="hidden sm:inline">Live — everyone with this link shares the same data</span>
+          <span className="sm:hidden">Live</span>
         </span>
         <div className="flex-1" />
         {error && (
@@ -30,7 +31,7 @@ export function PublishedApp({
             {error}
           </span>
         )}
-        <Link href="/" className="shrink-0 text-xs text-muted hover:text-foreground">
+        <Link href="/" className="shrink-0 text-xs text-faint transition-colors hover:text-foreground">
           Built with Bench
         </Link>
       </header>

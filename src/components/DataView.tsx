@@ -99,7 +99,7 @@ export function DataView({
               setSelected(candidate.name);
               setLoading(true);
             }}
-            className={`rounded-md px-2.5 py-1 text-sm ${
+            className={`rounded-lg px-2.5 py-1 text-sm transition-colors ${
               active === candidate.name
                 ? "bg-surface-2 text-foreground"
                 : "text-muted hover:text-foreground"
@@ -118,7 +118,7 @@ export function DataView({
             setReloadKey((key) => key + 1);
           }}
           disabled={loading}
-          className="rounded-md border border-border px-2.5 py-1 text-xs text-muted hover:text-foreground disabled:opacity-50"
+          className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted transition-colors hover:border-border-strong hover:text-foreground disabled:opacity-50"
         >
           {loading ? "Loading…" : "Refresh"}
         </button>

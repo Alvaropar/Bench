@@ -64,14 +64,14 @@ export function PublishToggle({
             href={path}
             target="_blank"
             rel="noreferrer"
-            className="font-mono text-[11px] text-muted hover:text-foreground"
+            className="hidden font-mono text-[11px] text-faint transition-colors hover:text-foreground md:inline"
             title="Open the published app"
           >
             {path}
           </a>
           <button
             onClick={copy}
-            className="rounded-md border border-border px-2.5 py-1 text-xs text-muted hover:text-foreground"
+            className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted transition-colors hover:border-border-strong hover:text-foreground"
           >
             {copied ? "Copied" : "Copy link"}
           </button>
@@ -81,10 +81,10 @@ export function PublishToggle({
       <button
         onClick={toggle}
         disabled={busy}
-        className={`rounded-md px-2.5 py-1 text-xs font-medium disabled:opacity-50 ${
+        className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
           published
-            ? "border border-border text-muted hover:text-foreground"
-            : "bg-accent text-background"
+            ? "border border-border text-muted hover:border-border-strong hover:text-foreground"
+            : "bg-accent text-background hover:bg-accent-strong"
         }`}
       >
         {busy ? "…" : published ? "Unpublish" : "Publish"}
