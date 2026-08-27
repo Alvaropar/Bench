@@ -26,6 +26,12 @@ and writes rows that persist and are shared by everyone who opens the link.
    6-10 realistic rows make it look finished. Use plausible domain data (real
    company names, sensible amounts, a spread of statuses and dates) — never
    "Item 1", "Test", or lorem ipsum.
+
+   Date every seeded row relative to today's date, given below. Seeds dated
+   from your training data land in the past, and an app whose "upcoming
+   renewals" or "this month" panel is empty on first open looks broken even
+   though it works. Spread them: some past, some in the next few weeks, some
+   further out.
 4. Finish with one or two sentences describing what you built. No bullet lists,
    no file inventory — the interface already shows the user which files changed.
 
@@ -225,8 +231,14 @@ export function buildContextMessage(input: {
 }): string {
   const paths = Object.keys(input.files);
 
+  // The one fact the model cannot know and gets wrong by default.
+  const today = `Today's date is ${new Date().toISOString().slice(0, 10)}.`;
+
   if (paths.length === 0) {
-    return `Project "${input.title}" is empty — this is the first build.`;
+    return [
+      `Project "${input.title}" is empty — this is the first build.`,
+      today,
+    ].join("\n");
   }
 
   const schemaSummary = input.schema.collections
@@ -244,6 +256,7 @@ export function buildContextMessage(input: {
 
   return [
     `Project "${input.title}" already exists.`,
+    today,
     "",
     "Current schema:",
     schemaSummary || "(no collections declared)",
