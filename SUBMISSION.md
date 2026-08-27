@@ -173,6 +173,7 @@ This is only findable by running the thing.
 | Image and file uploads | ✅ |
 | Near-live collaboration (~1s) | ✅ |
 | Click-to-edit in the preview | ✅ |
+| Accounts: register, sign in, cross-device | ✅ |
 
 ### Verified, not just written
 
@@ -196,6 +197,11 @@ This is only findable by running the thing.
 
 - **Rate limiting** — request 21 of 21 returns 429 with the retry window.
 - **Ownership** — a stranger gets 404 on generate, publish, and restore.
+- **Accounts, in production** — built a project anonymously in one browser,
+  registered, then signed in from a second browser with no shared cookie and
+  reached the same project. Duplicate email returns 409; an unknown email and a
+  wrong password return byte-identical errors, so responses cannot enumerate
+  accounts.
 - **In production, not just locally** — a generation on the deployed site took
   **99s** end to end, declaring two collections (`equipment`, `checkouts`),
   writing the app and seeding 15 rows; publishing it made it readable by a fresh
@@ -203,8 +209,8 @@ This is only findable by running the thing.
 
 ## 5. What is not done
 
-- **No accounts.** Ownership is an anonymous session cookie. Fine for a demo,
-  not for real use — the cookie *is* the credential.
+- **Accounts are email and password only.** No verification email, no reset
+  flow, no OAuth — all of which need an email provider this does not have.
 - **Rate limiting is in-memory.** Per-instance counters on serverless mean the
   real ceiling is roughly limit × instances. It is a cost guard, not a security
   control. Swapping in a shared store touches one file.
@@ -236,9 +242,8 @@ In priority order, and why:
 1. **Relations between collections.** A `reference` field type. The schema is
    flat, so today a link is a name string — rename the thing and the link
    silently detaches. This is what real internal tools hit first.
-2. **Accounts and per-app permissions.** The single thing blocking real use.
-   Anonymous sessions make publish all-or-nothing; teams need "these people can
-   write, everyone else can read."
+2. **Per-app permissions.** Accounts exist, but publishing is still
+   all-or-nothing; teams need "these people can write, everyone else can read."
 3. **Streaming file writes.** Files appear when a tool call completes; streaming
    them as they are written makes a long generation feel half as long, which
    matters more than actually making it faster.
@@ -251,6 +256,17 @@ I would not add more generation *breadth* before doing 1 and 2. The narrow,
 reliable version is worth more than a wider one that works sometimes.
 
 ---
+
+## 7. Engineering quality
+
+CI runs lint, typecheck, the tool-layer suite and a build on every push. It
+needs no secrets, because `tools:check` exercises the agent layer without a
+database or an API key.
+
+| Suite | Assertions | Needs |
+| --- | --- | --- |
+| `npm run tools:check` | 61 | nothing |
+| `npm run smoke` | 43 | a database |
 
 ## 7. Running it
 
@@ -274,7 +290,7 @@ enable Fluid Compute so functions are not capped at 60s.
 
 ---
 
-## 8. Stack
+## 9. Stack
 
 Next.js 16 (App Router) · Neon Postgres + Drizzle · Kimi K3 / Claude Opus 5 with
 tool use · Sandpack · Tailwind 4 · Vercel
