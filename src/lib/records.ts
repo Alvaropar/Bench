@@ -2,7 +2,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { records } from "@/db/schema";
 import type { RecordRow } from "@/db/schema";
-import { notFound, unprocessable } from "@/lib/http";
+import { notFound, unprocessable } from "@/lib/errors";
 import { collectionValidator, findCollection, formatIssues } from "@/lib/schema-validation";
 import type { AppSchema } from "@/lib/types";
 

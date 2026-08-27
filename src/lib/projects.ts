@@ -2,7 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { projects, versions } from "@/db/schema";
 import type { Project, Version } from "@/db/schema";
-import { forbidden, notFound } from "@/lib/http";
+import { forbidden, notFound } from "@/lib/errors";
 import { slugify } from "@/lib/ids";
 import { EMPTY_SCHEMA, type AppSchema, type FileMap } from "@/lib/types";
 

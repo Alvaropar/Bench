@@ -1,4 +1,4 @@
-import { notFound } from "@/lib/http";
+import { notFound } from "@/lib/errors";
 import { authorizeProject, getCurrentVersion } from "@/lib/projects";
 import type { Project } from "@/db/schema";
 import type { AppSchema } from "@/lib/types";

@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
+import { misconfigured } from "@/lib/errors";
 import * as schema from "./schema";
 
 type Db = ReturnType<typeof drizzle<typeof schema>>;
@@ -14,7 +15,7 @@ export function getDb(): Db {
   if (cached) return cached;
   const url = process.env.DATABASE_URL;
   if (!url) {
-    throw new Error(
+    throw misconfigured(
       "DATABASE_URL is not set. Copy .env.example to .env.local and add your Neon connection string.",
     );
   }
