@@ -4,8 +4,8 @@
 
 | | |
 | --- | --- |
-| Live demo | https://bench-alvaro-pa.vercel.app |
-| A published app | https://bench-alvaro-pa.vercel.app/p/equipment-checkout-7ygprm |
+| Live demo | https://bench-gen-ai.vercel.app |
+| A published app | https://bench-gen-ai.vercel.app/p/equipment-checkout-7ygprm |
 | Source | https://github.com/Alvaropar/Bench |
 | Model | Kimi K3 (`kimi-k3`), swappable to Claude Opus 5 via one env var |
 
