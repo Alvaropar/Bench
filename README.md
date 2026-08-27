@@ -21,6 +21,9 @@ Agent  ├── plan
 Live app ──postMessage──▶ Bench API ──▶ records table ──▶ same data for everyone
 ```
 
+For the exercise write-up — approach, tradeoffs, what is and is not done, and
+what I would build next — see [SUBMISSION.md](./SUBMISSION.md).
+
 ## Status
 
 | Phase | Scope | State |
