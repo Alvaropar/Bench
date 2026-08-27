@@ -4,7 +4,8 @@
 
 | | |
 | --- | --- |
-| Live demo | _(Vercel URL)_ |
+| Live demo | https://agentic-fullstack-gen.vercel.app |
+| A published app | https://agentic-fullstack-gen.vercel.app/p/equipment-checkout-7ygprm |
 | Source | https://github.com/Alvaropar/agentic-fullstack-gen |
 | Model | Kimi K3 (`kimi-k3`), swappable to Claude Opus 5 via one env var |
 
@@ -190,6 +191,10 @@ This is only findable by running the thing.
 
 - **Rate limiting** — request 21 of 21 returns 429 with the retry window.
 - **Ownership** — a stranger gets 404 on generate, publish, and restore.
+- **In production, not just locally** — a generation on the deployed site took
+  **99s** end to end, declaring two collections (`equipment`, `checkouts`),
+  writing the app and seeding 15 rows; publishing it made it readable by a fresh
+  session immediately.
 
 ## 5. What is not done
 
