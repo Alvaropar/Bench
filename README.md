@@ -28,7 +28,7 @@ Live app ──postMessage──▶ Bench API ──▶ records table ──▶ 
 | 0 | Deploy spine: Next.js + Neon + schema + health checks | ✅ |
 | 1 | Data spine: projects, records, schema-derived validation | ✅ |
 | 2 | Agent loop: tool use, streaming, version commits | ✅ |
-| 3 | Live preview + injected `db` SDK | — |
+| 3 | Live preview, postMessage bridge, chat + agent timeline | ✅ |
 | 4 | Publish, shared data, version history, self-healing | — |
 
 ## Stack
@@ -66,11 +66,24 @@ the tool is called, so mistakes reach the model while it can still fix them, but
 they are only written after the app is saved — a run that dies halfway leaves no
 rows behind for an app that never existed.
 
+**The preview talks to Bench over postMessage, not fetch.** Generated code
+never sees a project id or a token, and the sandbox origin never has to be
+allowed through CORS. Inbound messages are trusted only if their source is a
+frame Bench is actually rendering — the generated app posts with targetOrigin
+`"*"` because it cannot know ours, so trust runs the other direction.
+
 **Records hang off the project, not the version.** When the agent rewrites the
 UI, the data survives. Your data outlives your code edits.
 
 **`projects.currentVersionId` is not a foreign key.** projects ↔ versions would be
 circular and force a two-step migration for no real benefit.
+
+## Using it
+
+`/` takes a description (or one of four verified starter prompts) and creates a
+project. The workspace is chat on the left, preview on the right: the agent's
+work streams in as a timeline — data model declared, each file landing, seed rows
+inserted — and the app appears next to it. Follow-up messages edit it in place.
 
 ## API surface
 
@@ -130,3 +143,6 @@ for self-correction.
 `drizzle-kit` pulls a transitively vulnerable `esbuild` (moderate, dev-server
 only). Fixing it means downgrading to `drizzle-kit@0.18`, which is a breaking
 change for a dev-only dependency — not worth it here.
+
+Sandpack bundles in the browser against a remote bundler, so the preview needs
+network access. It works in any normal browser; it does not work offline.
