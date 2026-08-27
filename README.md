@@ -30,7 +30,7 @@ Live app ──postMessage──▶ Bench API ──▶ records table ──▶ 
 | 2 | Agent loop: tool use, streaming, version commits | ✅ |
 | 3 | Live preview, postMessage bridge, chat + agent timeline | ✅ |
 | 4 | Publish + shared data | ✅ |
-| 5 | Data view, version history, self-healing | — |
+| 5 | Data view, self-healing, version history, hardening | ✅ |
 
 ## Stack
 
@@ -50,6 +50,22 @@ injected `useCollection` hook polls.
 Publishing shares the *data*, never the source. Running the agent and flipping
 the flag stay owner-only, so a link recipient can use the tool but cannot
 rebuild it or unpublish it. `npm run smoke` asserts each of those boundaries.
+
+## Limits
+
+| Action | Limit |
+| --- | --- |
+| Generations | 8 per 15 min per session+address |
+| New apps | 20 per hour |
+| Writes from generated apps | 120 per minute |
+| Rows per app | 5,000 |
+| Agent tool-call rounds | 12 per generation |
+
+Rate limiting is in-memory (`src/lib/rate-limit.ts`). On serverless each
+instance keeps its own counters, so the real ceiling is roughly limit x
+instances — a cost guard and an abuse speed bump, not a security control. That
+is the right tradeoff for a demo whose public link is writable by anyone;
+swapping in a shared store means changing only that one file.
 
 ## Model providers
 

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { records } from "@/db/schema";
 import type { RecordRow } from "@/db/schema";
@@ -24,6 +24,25 @@ export function toPublicRecord(row: RecordRow): PublicRecord {
 }
 
 const MAX_LIMIT = 500;
+
+/**
+ * Hard ceiling per project. A published app accepts writes from anyone with the
+ * link, so without this one shared URL could fill the database.
+ */
+const MAX_RECORDS_PER_PROJECT = 5_000;
+
+async function assertCapacity(projectId: string, adding: number): Promise<void> {
+  const [row] = await getDb()
+    .select({ total: count() })
+    .from(records)
+    .where(eq(records.projectId, projectId));
+
+  if ((row?.total ?? 0) + adding > MAX_RECORDS_PER_PROJECT) {
+    throw unprocessable(
+      `This app has reached its limit of ${MAX_RECORDS_PER_PROJECT.toLocaleString()} rows.`,
+    );
+  }
+}
 
 function validateAgainstSchema(
   schema: AppSchema,
@@ -78,6 +97,7 @@ export async function createRecord(input: {
   const data = validateAgainstSchema(input.schema, input.collection, input.data, {
     partial: false,
   });
+  await assertCapacity(input.projectId, 1);
 
   const [row] = await getDb()
     .insert(records)
@@ -136,6 +156,8 @@ export async function seedRecords(input: {
 }): Promise<number> {
   if (input.rows.length === 0) return 0;
   if (input.rows.length > 50) throw unprocessable("Cannot seed more than 50 rows at once");
+
+  await assertCapacity(input.projectId, input.rows.length);
 
   const values = input.rows.map((row) => ({
     projectId: input.projectId,

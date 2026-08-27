@@ -5,6 +5,7 @@ import { runAgent } from "@/lib/agent/run";
 import { ApiError, badRequest, notFound } from "@/lib/errors";
 import { readJson, route } from "@/lib/http";
 import { getCurrentVersion, ownedProject } from "@/lib/projects";
+import { LIMITS, checkRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { getSessionId } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -18,6 +19,10 @@ export const POST = route(
   async (request: Request, ctx: RouteContext<"/api/projects/[projectId]/generate">) => {
     const { projectId } = await ctx.params;
     const sessionId = await getSessionId();
+
+    // Checked before any work: a generation costs real money, and this endpoint
+    // is reachable by anyone who can create a project.
+    checkRateLimit(rateLimitKey("generate", sessionId, request), LIMITS.generate);
 
     // Publishing opens a project's *data*, never its source. Only the owner
     // can put the agent to work on it.
