@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AgentTimeline } from "@/components/AgentTimeline";
 import { AppPreview, type PickedElement } from "@/components/AppPreview";
 import { DataView } from "@/components/DataView";
+import { FilesPanel } from "@/components/FilesPanel";
 import { VersionHistory } from "@/components/VersionHistory";
 import { PublishToggle } from "@/components/PublishToggle";
 import { streamGeneration } from "@/lib/client/generate";
@@ -482,25 +483,13 @@ export function Workspace({
                 }}
               />
             ) : (
-              <div className="h-full overflow-y-auto p-4">
-                {filePaths.length === 0 ? (
-                  <p className="text-sm text-muted">No files yet.</p>
-                ) : (
-                  <ul className="space-y-0.5">
-                    {filePaths.map((path) => (
-                      <li
-                        key={path}
-                        className="flex items-baseline justify-between gap-4 rounded-lg px-2.5 py-1.5 font-mono text-[13px] hover:bg-surface-2"
-                      >
-                        <span className="truncate">{path}</span>
-                        <span className="shrink-0 text-[11px] text-faint">
-                          {files[path].length.toLocaleString()}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <FilesPanel
+                projectId={projectId}
+                title={title}
+                slug={slug}
+                files={files}
+                schema={schema}
+              />
             )}
           </div>
         </section>

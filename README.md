@@ -72,6 +72,22 @@ instances — a cost guard and an abuse speed bump, not a security control. That
 is the right tradeoff for a demo whose public link is writable by anyone;
 swapping in a shared store means changing only that one file.
 
+## Taking an app with you
+
+The Files tab browses the generated source as a tree, and switches between what
+the agent wrote and the full project around it. **Download .zip** produces a
+standalone Vite project: `npm install && npm run dev` and it runs on your
+machine, with your rows baked in as a seed.
+
+The only substitution is the data layer. The hosted `bench/db.ts` talks to Bench
+over postMessage; the exported one keeps the identical API against
+`localStorage`. Everything else — components, charts, router, your `App.tsx` — is
+byte-for-byte what the preview ran.
+
+The zip is written by hand (`src/lib/export/zip.ts`), store-only, no dependency:
+generated projects are tens of kilobytes of text, where deflate buys nothing
+that a WASM dependency does not cost back.
+
 ## Model providers
 
 The agent loop is provider-swappable. Nothing above `src/lib/agent/providers/`

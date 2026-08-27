@@ -174,6 +174,7 @@ This is only findable by running the thing.
 | Near-live collaboration (~1s) | ✅ |
 | Click-to-edit in the preview | ✅ |
 | Accounts: register, sign in, cross-device | ✅ |
+| File tree, code viewer, download as a runnable project | ✅ |
 
 ### Verified, not just written
 
@@ -217,7 +218,13 @@ This is only findable by running the thing.
 - **The preview depends on a remote bundler** (Sandpack). It buys back several
   hours versus hand-rolling an iframe bundler; the cost is a third-party
   dependency in the critical path.
-- **No editing of generated source by hand** — the file list is read-only.
+- **Generated source is read-only in the browser.** You can browse it, and you
+  can download the whole project and edit it locally, but there is no editor
+  here.
+- **No toolchain in the browser.** Bench never runs `npm install`, a linter or a
+  bundler; the preview compiles in the sandbox and that is the only build step.
+  The exported project has a real one (`tsc --noEmit && vite build`), it just
+  runs on your machine.
 - **No fork.** History is append-only and restorable, but branches are not
   first-class.
 - **Generated apps cannot reach the outside world.** No HTTP from inside the
@@ -249,8 +256,8 @@ In priority order, and why:
    matters more than actually making it faster.
 4. **A shared rate-limit store and per-project token budgets.** Needed before
    this could be public rather than demoed.
-5. **Export.** Let someone take the generated app and its data out. A tool you
-   cannot leave is a tool people hesitate to adopt.
+5. **An in-browser editor.** The tree and viewer are there; making a file
+   editable and committing the result as a version is a small step from here.
 
 I would not add more generation *breadth* before doing 1 and 2. The narrow,
 reliable version is worth more than a wider one that works sometimes.
