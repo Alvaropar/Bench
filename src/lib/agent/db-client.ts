@@ -11,6 +11,7 @@
  */
 export const DB_CLIENT_SOURCE = String.raw`
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BENCH_ORIGIN } from "./config";
 
 export interface BenchRecord {
   id: string;
@@ -19,7 +20,7 @@ export interface BenchRecord {
   [key: string]: unknown;
 }
 
-type Op = "list" | "create" | "update" | "remove";
+type Op = "list" | "create" | "update" | "remove" | "upload";
 
 let sequence = 0;
 const pending = new Map<
@@ -132,5 +133,92 @@ export function useCollection<T extends BenchRecord = BenchRecord>(
   );
 
   return { records, loading, error, refresh, create, update, remove };
+}
+
+export interface UploadedFile {
+  id: string;
+  name: string;
+  mime: string;
+  bytes: number;
+}
+
+/** Public URL for an uploaded file. Safe to use directly as an <img src>. */
+export function assetUrl(id: string | null | undefined): string {
+  return id ? BENCH_ORIGIN + "/api/assets/" + id : "";
+}
+
+function toBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read the file"));
+    reader.onload = () => {
+      const result = String(reader.result);
+      // Strip the "data:<mime>;base64," prefix the API does not want.
+      resolve(result.slice(result.indexOf(",") + 1));
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Uploads a file and returns its id. Store the id in a field declared as
+ * "file" (or "image"), never the bytes.
+ */
+export async function uploadFile(file: File): Promise<UploadedFile> {
+  const base64 = await toBase64(file);
+  return call("upload", {
+    name: file.name,
+    mime: file.type || "application/octet-stream",
+    base64,
+  }) as Promise<UploadedFile>;
+}
+
+/**
+ * Uploads an image, downscaling it first.
+ *
+ * A photo straight off a phone is several times the upload limit, so resizing
+ * in the browser is the difference between this working and failing on most
+ * real files.
+ */
+export async function uploadImage(
+  file: File,
+  options: { maxDimension?: number; quality?: number } = {},
+): Promise<UploadedFile> {
+  const { maxDimension = 1600, quality = 0.85 } = options;
+
+  const shrunk = await new Promise<Blob | null>((resolve) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+      if (scale === 1 && file.size < 1_000_000) return resolve(null);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(image.width * scale);
+      canvas.height = Math.round(image.height * scale);
+      const context = canvas.getContext("2d");
+      if (!context) return resolve(null);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => resolve(blob), "image/jpeg", quality);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+
+    image.src = url;
+  });
+
+  if (!shrunk) return uploadFile(file);
+
+  const base64 = await toBase64(shrunk);
+  return call("upload", {
+    name: file.name.replace(/\.[^.]+$/, "") + ".jpg",
+    mime: "image/jpeg",
+    base64,
+  }) as Promise<UploadedFile>;
 }
 `.trimStart();

@@ -37,7 +37,7 @@ export const SCAFFOLD_FILES: FileMap = {
   "bench/styles.css": STYLES_SOURCE + ROUTER_STYLES,
 };
 
-export const SCAFFOLD_PATHS = new Set(Object.keys(SCAFFOLD_FILES));
+export const SCAFFOLD_PATHS = new Set([...Object.keys(SCAFFOLD_FILES), "bench/config.ts"]);
 
 /** Paths the agent may write. Everything else is rejected at tool-call time. */
 export const WRITABLE_EXTENSIONS = [".tsx", ".ts", ".css"];
@@ -63,7 +63,19 @@ export function validatePath(path: string): string | null {
   return null;
 }
 
-/** Scaffold + generated files, ready to hand to the preview runtime. */
-export function assembleFiles(generated: FileMap): FileMap {
-  return { ...SCAFFOLD_FILES, ...generated };
+/**
+ * Scaffold + generated files, ready to hand to the preview runtime.
+ *
+ * `origin` is injected as a scaffold file rather than passed through the bridge
+ * so an <img src> works without a round trip. Only the origin goes in -- the
+ * project id stays out of generated code, which is why asset URLs are
+ * capability ids rather than project-scoped paths.
+ */
+export function assembleFiles(generated: FileMap, origin = ""): FileMap {
+  return {
+    ...SCAFFOLD_FILES,
+    "bench/config.ts": `export const BENCH_ORIGIN = ${JSON.stringify(origin)};
+`,
+    ...generated,
+  };
 }

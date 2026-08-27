@@ -22,6 +22,7 @@ import { CHARTS_SOURCE } from "../src/lib/agent/charts-kit";
 import { ROUTER_SOURCE } from "../src/lib/agent/router-kit";
 import { DB_CLIENT_SOURCE } from "../src/lib/agent/db-client";
 import { EMPTY_SCHEMA } from "../src/lib/types";
+import { richTextToPlain, sanitizeHtml } from "../src/lib/sanitize-html";
 
 let passed = 0;
 let failed = 0;
@@ -273,6 +274,50 @@ console.log("\nBench agent tool layer\n");
     "bench/db.ts" in assembled && assembled["bench/db.ts"].includes("useCollection"),
   );
 }
+
+  console.log("\nRich text sanitiser");
+
+  const drops = [
+    ["script tag and its body", "<p>ok</p><script>alert(1)</script>"],
+    ["inline event handler", "<p onclick=\"steal()\">ok</p>"],
+    ["javascript: href", "<a href=\"javascript:alert(1)\">x</a>"],
+    ["iframe", "<p>ok</p><iframe src=\"//evil\"></iframe>"],
+    ["style block", "<style>body{display:none}</style><p>ok</p>"],
+    ["img with onerror", "<img src=x onerror=alert(1)>"],
+    ["svg payload", "<svg><script>alert(1)</script></svg>"],
+  ] as const;
+
+  for (const [label, payload] of drops) {
+    const cleaned = sanitizeHtml(payload);
+    const unsafe =
+      /<script|<iframe|<style|<svg|onerror|onclick|javascript:/i.test(cleaned);
+    check("strips " + label, !unsafe, cleaned);
+  }
+
+  check(
+    "keeps the text around a stripped tag",
+    sanitizeHtml("<p>ok</p><script>alert(1)</script>").includes("ok"),
+  );
+  check(
+    "preserves allowed formatting",
+    sanitizeHtml("<p><strong>bold</strong> and <em>italic</em></p>") ===
+      "<p><strong>bold</strong> and <em>italic</em></p>",
+    sanitizeHtml("<p><strong>bold</strong> and <em>italic</em></p>"),
+  );
+  check(
+    "keeps safe links and hardens them",
+    (() => {
+      const out = sanitizeHtml('<a href="https://example.com">x</a>');
+      return out.includes('href="https://example.com"') && out.includes("noopener");
+    })(),
+    sanitizeHtml('<a href="https://example.com">x</a>'),
+  );
+  check(
+    "plain-text preview drops markup",
+    richTextToPlain("<p>Hello <strong>there</strong></p><ul><li>one</li></ul>") ===
+      "Hello there one",
+    richTextToPlain("<p>Hello <strong>there</strong></p><ul><li>one</li></ul>"),
+  );
 
 // ------------------------------------------------------- provider adapters
 {

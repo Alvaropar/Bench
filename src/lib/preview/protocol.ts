@@ -7,18 +7,23 @@
  * generated code and avoids CORS with the sandbox origin entirely.
  */
 
-export type BridgeOp = "list" | "create" | "update" | "remove";
+export type BridgeOp = "list" | "create" | "update" | "remove" | "upload";
 
 export interface BridgeRequest {
   __bench: "request";
   id: number;
   op: BridgeOp;
   payload: {
-    collection: string;
+    /** Present for every record op; absent for uploads. */
+    collection?: string;
     id?: string;
     data?: Record<string, unknown>;
     limit?: number;
     order?: "asc" | "desc";
+    /** Upload only. */
+    name?: string;
+    mime?: string;
+    base64?: string;
   };
 }
 
@@ -38,7 +43,7 @@ export function isBridgeRequest(value: unknown): value is BridgeRequest {
     typeof message.op === "string" &&
     typeof message.payload === "object" &&
     message.payload !== null &&
-    typeof message.payload.collection === "string"
+    (message.op === "upload" || typeof message.payload.collection === "string")
   );
 }
 
@@ -54,7 +59,7 @@ export async function handleBridgeRequest(
   request: BridgeRequest,
 ): Promise<BridgeResponse> {
   const { op, payload } = request;
-  const base = `/api/apps/${projectId}/${encodeURIComponent(payload.collection)}`;
+  const base = `/api/apps/${projectId}/${encodeURIComponent(payload.collection ?? "")}`;
 
   try {
     switch (op) {
@@ -88,6 +93,18 @@ export async function handleBridgeRequest(
         await request_(`${base}/${payload.id}`, { method: "DELETE" });
         return { __bench: "response", id: request.id, result: null };
       }
+      case "upload": {
+        const body = await request_(`/api/apps/${projectId}/assets`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: payload.name ?? "upload",
+            mime: payload.mime ?? "application/octet-stream",
+            data: payload.base64 ?? "",
+          }),
+        });
+        return { __bench: "response", id: request.id, result: body.asset };
+      }
       default:
         throw new Error(`Unknown operation "${op}"`);
     }
@@ -103,6 +120,7 @@ export async function handleBridgeRequest(
 interface ApiBody {
   records?: unknown;
   record?: unknown;
+  asset?: unknown;
   error?: string;
   details?: unknown;
 }

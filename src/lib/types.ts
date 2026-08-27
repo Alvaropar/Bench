@@ -9,12 +9,15 @@
 export type FieldType =
   | "text"
   | "longtext"
+  | "richtext"
   | "number"
   | "boolean"
   | "date"
   | "select"
   | "url"
-  | "email";
+  | "email"
+  | "image"
+  | "file";
 
 export interface Field {
   /** camelCase key used in `record.data` */

@@ -131,10 +131,38 @@ body {
 .bench-toolbar .bench-input, .bench-toolbar .bench-select { width: auto; min-width: 160px; }
 .bench-spacer { flex: 1; }
 .bench-muted { color: var(--text-muted); }
+
+.bench-richtext { border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.bench-richtext:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.bench-richtext-toolbar { display: flex; gap: 2px; padding: 5px; border-bottom: 1px solid var(--border); background: #fafbfc; flex-wrap: wrap; }
+.bench-richtext-btn { border: none; background: transparent; border-radius: 5px; padding: 4px 8px; font: inherit; font-size: 13px; color: var(--text-muted); cursor: pointer; min-width: 28px; }
+.bench-richtext-btn:hover { background: #eef0f4; color: var(--text); }
+.bench-richtext-body { padding: 10px 12px; min-height: 110px; outline: none; font-size: 14px; line-height: 1.6; }
+.bench-richtext-body:empty::before { content: attr(data-placeholder); color: #98a2b3; }
+.bench-richtext-body p { margin: 0 0 8px; }
+.bench-richtext-body ul, .bench-richtext-body ol { margin: 0 0 8px; padding-left: 22px; }
+.bench-richtext-body blockquote { margin: 0 0 8px; padding-left: 12px; border-left: 3px solid var(--border-strong); color: var(--text-muted); }
+.bench-richtext-body code { background: #f2f4f7; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+
+.bench-prose { font-size: 14px; line-height: 1.6; }
+.bench-prose p { margin: 0 0 8px; }
+.bench-prose ul, .bench-prose ol { margin: 0 0 8px; padding-left: 22px; }
+.bench-prose h3 { font-size: 15px; margin: 12px 0 6px; }
+.bench-prose h4 { font-size: 14px; margin: 10px 0 6px; }
+.bench-prose blockquote { margin: 0 0 8px; padding-left: 12px; border-left: 3px solid var(--border-strong); color: var(--text-muted); }
+.bench-prose a { color: var(--accent); }
+.bench-prose :last-child { margin-bottom: 0; }
+
+.bench-drop { display: flex; align-items: center; gap: 12px; border: 1px dashed var(--border-strong); border-radius: 8px; padding: 12px; background: var(--surface); }
+.bench-drop-hint { color: var(--text-muted); font-size: 13px; }
+.bench-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0; background: #f2f4f7; }
+.bench-file-link { color: var(--accent); font-size: 13px; text-decoration: none; }
+.bench-file-link:hover { text-decoration: underline; }
 `.trimStart();
 
 export const UI_SOURCE = String.raw`
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { assetUrl, uploadFile, uploadImage } from "./db";
 
 export function Page({ children }: { children: React.ReactNode }) {
   return <div className="bench-page">{children}</div>;
@@ -359,6 +387,221 @@ export function Modal({
         <div className="bench-modal-body">{children}</div>
         {footer && <div className="bench-modal-footer">{footer}</div>}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Rich text input. Stores HTML, which Bench sanitises on write against a strict
+ * allowlist, so only formatting survives.
+ *
+ * Built on document.execCommand. It is deprecated and every browser still
+ * implements it; a real editor would mean a dependency the sandbox does not
+ * have, for formatting nobody needs beyond this.
+ */
+export function RichTextEditor({
+  value,
+  onChange,
+  placeholder = "Write something...",
+}: {
+  value: string;
+  onChange: (html: string) => void;
+  placeholder?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Only write into the DOM when the incoming value genuinely differs, or every
+  // keystroke would reset the caret to the start.
+  useEffect(() => {
+    const node = ref.current;
+    if (node && node.innerHTML !== value) node.innerHTML = value || "";
+  }, [value]);
+
+  const emit = () => onChange(ref.current?.innerHTML ?? "");
+
+  const exec = (command: string, argument?: string) => {
+    document.execCommand(command, false, argument);
+    ref.current?.focus();
+    emit();
+  };
+
+  const buttons: { label: React.ReactNode; title: string; run: () => void }[] = [
+    { label: <b>B</b>, title: "Bold", run: () => exec("bold") },
+    { label: <i>I</i>, title: "Italic", run: () => exec("italic") },
+    { label: <u>U</u>, title: "Underline", run: () => exec("underline") },
+    { label: "H", title: "Heading", run: () => exec("formatBlock", "<h3>") },
+    { label: "\u2022", title: "Bullet list", run: () => exec("insertUnorderedList") },
+    { label: "1.", title: "Numbered list", run: () => exec("insertOrderedList") },
+    { label: "\u201C", title: "Quote", run: () => exec("formatBlock", "<blockquote>") },
+    {
+      label: "\ud83d\udd17",
+      title: "Link",
+      run: () => {
+        const url = window.prompt("Link URL");
+        if (url) exec("createLink", url);
+      },
+    },
+    { label: "\u2715", title: "Clear formatting", run: () => exec("removeFormat") },
+  ];
+
+  return (
+    <div className="bench-richtext">
+      <div className="bench-richtext-toolbar">
+        {buttons.map((button) => (
+          <button
+            key={button.title}
+            type="button"
+            title={button.title}
+            className="bench-richtext-btn"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={button.run}
+          >
+            {button.label}
+          </button>
+        ))}
+      </div>
+      <div
+        ref={ref}
+        className="bench-richtext-body"
+        contentEditable
+        suppressContentEditableWarning
+        data-placeholder={placeholder}
+        onInput={emit}
+        onBlur={emit}
+      />
+    </div>
+  );
+}
+
+/** Renders stored rich text. The value was sanitised before it was stored. */
+export function RichText({ html }: { html: string }) {
+  if (!html) return <span className="bench-muted">\u2014</span>;
+  return <div className="bench-prose" dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+/** Thumbnail for a value stored in an "image" field. */
+export function ImageThumb({ id, alt = "" }: { id: string | null | undefined; alt?: string }) {
+  if (!id) return <div className="bench-thumb" />;
+  return <img className="bench-thumb" src={assetUrl(id)} alt={alt} />;
+}
+
+/** Download link for a value stored in a "file" field. */
+export function FileLink({ id, name = "Download" }: { id: string | null | undefined; name?: string }) {
+  if (!id) return <span className="bench-muted">\u2014</span>;
+  return (
+    <a className="bench-file-link" href={assetUrl(id)} target="_blank" rel="noreferrer">
+      {name}
+    </a>
+  );
+}
+
+/**
+ * Picks an image, downscales it, uploads it, and hands back the asset id to
+ * store in an "image" field.
+ */
+export function ImageUpload({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function pick(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const uploaded = await uploadImage(file);
+      onChange(uploaded.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="bench-drop">
+        <ImageThumb id={value} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <input
+            type="file"
+            accept="image/*"
+            disabled={busy}
+            onChange={(event) => pick(event.target.files?.[0])}
+            style={{ fontSize: 13 }}
+          />
+          <div className="bench-drop-hint">
+            {busy ? "Uploading..." : "PNG, JPEG, GIF or WebP"}
+          </div>
+        </div>
+        {value && (
+          <Button size="sm" variant="ghost" type="button" onClick={() => onChange(null)}>
+            Remove
+          </Button>
+        )}
+      </div>
+      {error && <div className="bench-field-error">{error}</div>}
+    </div>
+  );
+}
+
+/** Same, for a "file" field: PDFs, spreadsheets, CSVs. */
+export function FileUpload({
+  value,
+  onChange,
+  label,
+}: {
+  value: string | null;
+  onChange: (id: string | null, name?: string) => void;
+  label?: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function pick(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const uploaded = await uploadFile(file);
+      onChange(uploaded.id, uploaded.name);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="bench-drop">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <input
+            type="file"
+            disabled={busy}
+            onChange={(event) => pick(event.target.files?.[0])}
+            style={{ fontSize: 13 }}
+          />
+          <div className="bench-drop-hint">
+            {busy
+              ? "Uploading..."
+              : value
+                ? <FileLink id={value} name={label ?? "View file"} />
+                : "PDF, CSV, TXT, DOCX or XLSX"}
+          </div>
+        </div>
+        {value && (
+          <Button size="sm" variant="ghost" type="button" onClick={() => onChange(null)}>
+            Remove
+          </Button>
+        )}
+      </div>
+      {error && <div className="bench-field-error">{error}</div>}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import {
   boolean,
   index,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -80,7 +81,32 @@ export const records = pgTable(
   (t) => [index("records_scope_idx").on(t.projectId, t.collection, t.createdAt)],
 );
 
+/**
+ * Files uploaded from inside generated apps.
+ *
+ * Bytes are base64 in a column rather than object storage: it keeps the whole
+ * demo on one dependency, and the per-file and per-project caps stop that being
+ * a problem. Swapping in blob storage means changing the two asset routes and
+ * nothing else -- records only ever hold the asset id.
+ */
+export const assets = pgTable(
+  "assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    mime: text("mime").notNull(),
+    bytes: integer("bytes").notNull(),
+    data: text("data").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("assets_project_idx").on(t.projectId, t.createdAt)],
+);
+
 export type Project = typeof projects.$inferSelect;
 export type Version = typeof versions.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type RecordRow = typeof records.$inferSelect;
+export type Asset = typeof assets.$inferSelect;

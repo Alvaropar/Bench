@@ -14,7 +14,8 @@ import type { FileMap } from "@/lib/types";
 /** Sandpack keys files by absolute path; the rest of Bench does not. */
 function toSandpackFiles(files: FileMap): Record<string, string> {
   const mapped: Record<string, string> = {};
-  for (const [path, content] of Object.entries(assembleFiles(files))) {
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  for (const [path, content] of Object.entries(assembleFiles(files, origin))) {
     mapped[`/${path}`] = content;
   }
   return mapped;

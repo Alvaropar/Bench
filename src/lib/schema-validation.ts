@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_RICHTEXT_LENGTH, sanitizeHtml } from "@/lib/sanitize-html";
 import type { AppSchema, Collection, Field } from "@/lib/types";
 
 /**
@@ -17,6 +18,15 @@ function fieldBase(field: Field): z.ZodType {
       return z.string().max(2_000);
     case "longtext":
       return z.string().max(20_000);
+    case "richtext":
+      // Sanitised on the way in, so nothing unsafe is ever stored -- doing it
+      // on render instead would leave every future reader depending on the
+      // renderer remembering.
+      return z.string().max(MAX_RICHTEXT_LENGTH).transform(sanitizeHtml);
+    case "image":
+    case "file":
+      // The value is an asset id; the bytes live in the assets table.
+      return z.uuid("Expected an uploaded file id");
     case "number":
       // Coerced: HTML number inputs hand back strings, and having the agent
       // remember to parse them every time is a reliability tax we can just pay
@@ -69,7 +79,19 @@ export const fieldSchema: z.ZodType<Field> = z.strictObject({
     .string()
     .regex(/^[a-z][a-zA-Z0-9]*$/, "Field names must be camelCase and start with a letter"),
   label: z.string().min(1).max(80),
-  type: z.enum(["text", "longtext", "number", "boolean", "date", "select", "url", "email"]),
+  type: z.enum([
+    "text",
+    "longtext",
+    "richtext",
+    "number",
+    "boolean",
+    "date",
+    "select",
+    "url",
+    "email",
+    "image",
+    "file",
+  ]),
   required: z.boolean().optional(),
   options: z.array(z.string().min(1)).max(40).optional(),
   defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),

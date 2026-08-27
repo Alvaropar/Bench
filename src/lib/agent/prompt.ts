@@ -57,6 +57,17 @@ Every record carries id, createdAt and updatedAt on top of its declared fields.
 For imperative access outside a component, use db.collection<T>(name) with the
 same list / create / update / remove methods.
 
+For files, upload first and store the id you get back:
+
+  import { uploadImage, uploadFile, assetUrl } from "./bench/db";
+
+  const uploaded = await uploadImage(file);   // downscales, then uploads
+  await create({ name, photo: uploaded.id });
+
+assetUrl(id) turns a stored id into a public URL you can use directly as an
+<img src>. The ImageUpload and FileUpload components already do all of this, so
+reach for them first and use these only when you need something custom.
+
 Writes are validated against the schema you declared. Sending a field you did
 not declare, or omitting a required one, throws — so keep your forms and your
 schema in agreement.
@@ -65,13 +76,19 @@ schema in agreement.
 
 set_schema takes collections, each with camelCase plural names and typed fields:
 
-  text | longtext | number | boolean | date | select | url | email
+  text | longtext | richtext | number | boolean | date | select | url | email
+  image | file
 
 Rules that matter:
 - Collection and field names are camelCase and start with a letter.
 - "select" fields must list their options; those are the only values accepted.
 - Mark a field required only if the app genuinely cannot store a row without it.
 - Dates are ISO strings ("2026-03-14" or a full ISO timestamp).
+- "richtext" holds formatted HTML. Use it when a field is genuinely written
+  prose -- a case note, a description, a write-up -- and "longtext" when plain
+  text is enough. Bench sanitises it on write.
+- "image" and "file" store an uploaded file's id, never the bytes. Use "image"
+  for photos and logos, "file" for documents.
 - Model one thing per collection. Two or three collections is usually plenty.
 - Calling set_schema again replaces the whole schema, and existing rows are kept
   as they are — so remove a field only when you mean it.
@@ -108,6 +125,24 @@ markup or CSS; they are what make generated apps look consistent.
       />
     </Card>
   </Page>
+
+For richtext, image and file fields, use the matching inputs:
+
+  RichTextEditor, RichText, ImageUpload, ImageThumb, FileUpload, FileLink
+
+  <Field label="Case notes">
+    <RichTextEditor value={form.notes} onChange={(html) => set("notes", html)} />
+  </Field>
+
+  <Field label="Photo">
+    <ImageUpload value={form.photo} onChange={(id) => set("photo", id)} />
+  </Field>
+
+ImageUpload downscales before uploading and stores the id it gets back;
+FileUpload does the same without resizing. Render stored values with
+<ImageThumb id={row.photo} />, <FileLink id={row.receipt} /> and
+<RichText html={row.notes} />. In a table, prefer ImageThumb and FileLink --
+RichText belongs in a detail view, not a cell.
 
 Button variants: primary, danger, ghost, or the default. Badge tones: accent,
 ok, warn, danger, or the default. Wrap every form control in Field to get its
