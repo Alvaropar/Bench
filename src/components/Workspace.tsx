@@ -17,6 +17,19 @@ interface Turn {
 
 type Tab = "preview" | "data" | "files";
 
+/** Attempts the agent gets at fixing its own output before we stop asking. */
+const MAX_AUTO_FIXES = 2;
+
+/** One wording, shared by the automatic attempt and the manual button. */
+const FIX_PROMPT = (error: string) =>
+  [
+    "The app you just built failed to run. The preview reported:",
+    "",
+    error,
+    "",
+    "Fix it, changing as little as possible.",
+  ].join("\n");
+
 export function Workspace({
   projectId,
   title,
@@ -49,9 +62,11 @@ export function Workspace({
   const [tab, setTab] = useState<Tab>("preview");
 
   const abortRef = useRef<AbortController | null>(null);
+  const autoFixArmed = useRef(false);
+  const autoFixes = useRef(0);
 
   const submit = useCallback(
-    async (message: string) => {
+    async (message: string, display?: string) => {
       if (!message.trim() || running) return;
 
       setRunning(true);
@@ -60,7 +75,7 @@ export function Workspace({
       setLiveEvents([]);
       setLiveText("");
       setDraft("");
-      setTurns((current) => [...current, { role: "user", content: message }]);
+      setTurns((current) => [...current, { role: "user", content: display ?? message }]);
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -80,6 +95,7 @@ export function Workspace({
               setLiveText(summary);
               break;
             case "done":
+              autoFixArmed.current = true;
               setFiles(event.files);
               setSchema(event.schema);
               setTurns((current) => [
@@ -110,6 +126,37 @@ export function Workspace({
   );
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
+
+  const submitManual = useCallback(
+    (message: string) => {
+      autoFixes.current = 0;
+      submit(message);
+    },
+    [submit],
+  );
+
+  /**
+   * Self-healing.
+   *
+   * A generation arms the loop; the first compile or runtime error the preview
+   * reports after that is fed straight back to the agent. It disarms itself
+   * immediately and stops after MAX_AUTO_FIXES, because an agent that cannot
+   * fix an error will not fix it on the fifth attempt either -- it will just
+   * burn tokens. A manual message resets the budget.
+   */
+  const handlePreviewError = useCallback(
+    (message: string | null) => {
+      setPreviewError(message);
+      if (!message || running) return;
+      if (!autoFixArmed.current || autoFixes.current >= MAX_AUTO_FIXES) return;
+
+      autoFixArmed.current = false;
+      autoFixes.current += 1;
+
+      submit(FIX_PROMPT(message), "The app did not run. Asking the agent to fix it.");
+    },
+    [running, submit],
+  );
 
   // Fires once. `submit` is intentionally not a dependency: it changes whenever
   // `running` flips, which would re-trigger the effect mid-run.
@@ -183,7 +230,7 @@ export function Workspace({
             className="border-t border-border p-3"
             onSubmit={(event) => {
               event.preventDefault();
-              submit(draft);
+              submitManual(draft);
             }}
           >
             <textarea
@@ -192,7 +239,7 @@ export function Workspace({
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
-                  submit(draft);
+                  submitManual(draft);
                 }
               }}
               rows={3}
@@ -250,15 +297,25 @@ export function Workspace({
             ))}
             <div className="flex-1" />
             {previewError && (
-              <span className="truncate text-xs text-bad" title={previewError}>
-                {previewError}
-              </span>
+              <>
+                <span className="max-w-[380px] truncate text-xs text-bad" title={previewError}>
+                  {previewError}
+                </span>
+                {/* The automatic attempt is capped, so leave a manual way back. */}
+                <button
+                  onClick={() => submitManual(FIX_PROMPT(previewError))}
+                  disabled={running}
+                  className="shrink-0 rounded-md border border-bad/40 px-2 py-1 text-xs text-bad hover:bg-bad/10 disabled:opacity-50"
+                >
+                  Fix it
+                </button>
+              </>
             )}
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden bg-surface">
             {tab === "preview" ? (
-              <AppPreview projectId={projectId} files={files} onError={setPreviewError} />
+              <AppPreview projectId={projectId} files={files} onError={handlePreviewError} />
             ) : tab === "data" ? (
               <DataView projectId={projectId} schema={schema} />
             ) : (

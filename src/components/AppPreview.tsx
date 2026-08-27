@@ -21,12 +21,13 @@ function toSandpackFiles(files: FileMap): Record<string, string> {
 }
 
 /**
- * Reports compile and runtime errors out of the sandbox.
+ * Reports compile and runtime errors out of the sandbox, and reports recovery.
  *
- * Phase 7 feeds these straight back to the agent; for now they surface to the
- * user so a broken generation is visible rather than a blank rectangle.
+ * Both directions matter: the error is what the self-healing loop feeds back to
+ * the agent, and the success signal is what lets a stale banner clear once a
+ * fix lands.
  */
-function ErrorReporter({ onError }: { onError?: (message: string) => void }) {
+function ErrorReporter({ onError }: { onError?: (message: string | null) => void }) {
   const { listen } = useSandpack();
 
   useEffect(() => {
@@ -35,6 +36,8 @@ function ErrorReporter({ onError }: { onError?: (message: string) => void }) {
       if (message.type === "action" && message.action === "show-error") {
         const detail = [message.title, message.message].filter(Boolean).join(": ");
         onError(detail || "Unknown error in the generated app");
+      } else if (message.type === "success") {
+        onError(null);
       }
     });
   }, [listen, onError]);
@@ -49,7 +52,7 @@ export function AppPreview({
 }: {
   projectId: string;
   files: FileMap;
-  onError?: (message: string) => void;
+  onError?: (message: string | null) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
