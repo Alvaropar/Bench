@@ -5,7 +5,7 @@
 | | |
 | --- | --- |
 | Live demo | https://bench-gen-ai.vercel.app |
-| A published app | https://bench-gen-ai.vercel.app/p/equipment-checkout-7ygprm |
+| A published app | https://bench-gen-ai.vercel.app/p/product-catalog-2aak33 |
 | Source | https://github.com/Alvaropar/Bench |
 | Model | Kimi K3 (`kimi-k3`), swappable to Claude Opus 5 via one env var |
 
@@ -168,6 +168,11 @@ This is only findable by running the thing.
 | Version history with restore | ✅ |
 | Rate limits, row ceilings, error boundaries | ✅ |
 | Provider-swappable agent (Claude / Kimi K3) | ✅ |
+| Charts, multi-screen routing | ✅ |
+| Rich text with server-side sanitising | ✅ |
+| Image and file uploads | ✅ |
+| Near-live collaboration (~1s) | ✅ |
+| Click-to-edit in the preview | ✅ |
 
 ### Verified, not just written
 
@@ -211,6 +216,16 @@ This is only findable by running the thing.
   first-class.
 - **Generated apps cannot reach the outside world.** No HTTP from inside the
   sandbox, so tools needing live external data are out of scope by construction.
+- **The schema is flat.** No relations, so a link between collections is a name
+  string rather than a foreign key. This is the limitation real internal tools
+  hit first, and the one I would close next.
+- **Collaboration is ~1s, not sub-second.** A change token polled every second,
+  not a push. True realtime needs a service Bench does not depend on.
+- **Uploads live in Postgres as base64**, capped at 1.5MB per file and 40MB per
+  app. Fine at this size, wrong at any real one — but only two routes would
+  change.
+- **Rich text uses `document.execCommand`**, which is deprecated and universally
+  implemented. A real editor is a dependency the sandbox does not have.
 
 ---
 
@@ -218,26 +233,22 @@ This is only findable by running the thing.
 
 In priority order, and why:
 
-1. **Accounts and per-app permissions.** The single thing blocking real use.
+1. **Relations between collections.** A `reference` field type. The schema is
+   flat, so today a link is a name string — rename the thing and the link
+   silently detaches. This is what real internal tools hit first.
+2. **Accounts and per-app permissions.** The single thing blocking real use.
    Anonymous sessions make publish all-or-nothing; teams need "these people can
    write, everyone else can read."
-2. **Click-to-edit in the preview.** Select an element, describe the change, and
-   the agent patches just that file. The highest-leverage UX win — it removes the
-   need to describe *where* in words.
-3. **Streaming file writes.** Files currently appear when a tool call completes;
-   streaming them as they are written makes long generations feel half as long,
-   which matters more than actually making them faster.
+3. **Streaming file writes.** Files appear when a tool call completes; streaming
+   them as they are written makes a long generation feel half as long, which
+   matters more than actually making it faster.
 4. **A shared rate-limit store and per-project token budgets.** Needed before
    this could be public rather than demoed.
-5. **Relations between collections.** The schema is deliberately flat. A
-   `reference` field type — customers → activities — is the most common thing
-   real internal tools need that Bench cannot express.
-6. **Export.** Let someone take the generated app and its data out. A tool you
+5. **Export.** Let someone take the generated app and its data out. A tool you
    cannot leave is a tool people hesitate to adopt.
 
-I would not add more generation *breadth* (charts, dashboards, integrations)
-before doing 1 and 2. The narrow, reliable version is worth more than a wider one
-that works sometimes.
+I would not add more generation *breadth* before doing 1 and 2. The narrow,
+reliable version is worth more than a wider one that works sometimes.
 
 ---
 
