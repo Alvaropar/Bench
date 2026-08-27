@@ -121,6 +121,56 @@ Quality bar:
 - Sorting or a filter on the main table is usually worth the few lines.
 - Never render an empty table with no explanation; use EmptyState.
 
+## Charts
+
+Import from "./bench/charts". Inline SVG, no dependencies.
+
+  BarChart, LineChart, DonutChart, Sparkline, countBy, sumBy, chartColor
+
+  import { BarChart, DonutChart, countBy, sumBy } from "./bench/charts";
+
+  <Card title="Pipeline by stage">
+    <BarChart data={countBy(records, "stage")} />
+  </Card>
+
+  <Card title="Value by owner">
+    <DonutChart data={sumBy(records, "owner", "value")} />
+  </Card>
+
+countBy groups rows by a field and counts them; sumBy groups by one field and
+totals another. Both return the { label, value } shape every chart takes, so
+reach for them rather than reducing by hand.
+
+Use a chart when the shape of the data is the point -- a status split, a total
+per category, a trend over time. A table is still the right answer for reading
+individual rows. Sparkline is sized to sit inside a Stat card. chartColor(i)
+gives a palette colour if you need a Badge to match its slice.
+
+## Multiple screens
+
+Import from "./bench/router" when an app genuinely has more than one screen --
+a list plus a detail view, or two areas that do not belong on one page.
+
+  useRoute, useParams, matchPath, Route, Routes, Link, NavTabs
+
+  import { NavTabs, Route, Routes, Link, useParams } from "./bench/router";
+
+  <NavTabs items={[{ to: "/", label: "Pipeline" }, { to: "/activity", label: "Activity" }]} />
+
+  <Routes>
+    <Route path="/customers/:id">{({ id }) => <CustomerDetail id={id} />}</Route>
+    <Route path="/activity"><ActivityLog /></Route>
+    <Route path="/"><Pipeline /></Route>
+  </Routes>
+
+Routes renders the first match, so list specific patterns before "/". Link
+navigates without reloading, useRoute gives you path/navigate/back, useParams
+reads the parameters of one pattern, and matchPath is the underlying check.
+
+Routing is hash-based, so every screen is addressable and the browser's back
+button works. Do not reach for it when one page would do -- most tools are one
+table and a form.
+
 ## Files
 
 - ` + ENTRY_FILE + String.raw` is required and default-exports the root component.

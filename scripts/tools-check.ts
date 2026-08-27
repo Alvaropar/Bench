@@ -18,6 +18,8 @@ import {
 } from "../src/lib/agent/providers/moonshot";
 import { PROVIDER_IDS, isProviderId } from "../src/lib/agent/providers";
 import { UI_SOURCE } from "../src/lib/agent/ui-kit";
+import { CHARTS_SOURCE } from "../src/lib/agent/charts-kit";
+import { ROUTER_SOURCE } from "../src/lib/agent/router-kit";
 import { DB_CLIENT_SOURCE } from "../src/lib/agent/db-client";
 import { EMPTY_SCHEMA } from "../src/lib/types";
 
@@ -229,7 +231,11 @@ console.log("\nBench agent tool layer\n");
 
 // ------------------------------------------------------ prompt/runtime drift
 {
-  const exported = [...UI_SOURCE.matchAll(/export (?:function|const) (\w+)/g)].map((m) => m[1]);
+  const exported = [
+    ...UI_SOURCE.matchAll(/export (?:function|const) (\w+)/g),
+    ...CHARTS_SOURCE.matchAll(/export (?:function|const) (\w+)/g),
+    ...ROUTER_SOURCE.matchAll(/export (?:function|const) (\w+)/g),
+  ].map((m) => m[1]);
   const undocumented = exported.filter((name) => !SYSTEM_PROMPT.includes(name));
   check(
     "every UI component the scaffold exports is documented in the prompt",

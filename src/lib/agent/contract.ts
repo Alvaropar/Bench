@@ -1,4 +1,6 @@
+import { CHARTS_SOURCE } from "@/lib/agent/charts-kit";
 import { DB_CLIENT_SOURCE } from "@/lib/agent/db-client";
+import { ROUTER_SOURCE, ROUTER_STYLES } from "@/lib/agent/router-kit";
 import { STYLES_SOURCE, UI_SOURCE } from "@/lib/agent/ui-kit";
 import type { FileMap } from "@/lib/types";
 
@@ -30,7 +32,9 @@ export const SCAFFOLD_FILES: FileMap = {
   "index.tsx": INDEX_SOURCE,
   "bench/db.ts": DB_CLIENT_SOURCE,
   "bench/ui.tsx": UI_SOURCE,
-  "bench/styles.css": STYLES_SOURCE,
+  "bench/charts.tsx": CHARTS_SOURCE,
+  "bench/router.tsx": ROUTER_SOURCE,
+  "bench/styles.css": STYLES_SOURCE + ROUTER_STYLES,
 };
 
 export const SCAFFOLD_PATHS = new Set(Object.keys(SCAFFOLD_FILES));
