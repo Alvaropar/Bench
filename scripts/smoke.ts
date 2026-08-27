@@ -7,7 +7,7 @@
  * validation, partial updates, project scoping, and the claim that records
  * survive a version rewrite.
  */
-import "dotenv/config";
+import "./load-env";
 import { eq } from "drizzle-orm";
 import { getDb } from "../src/db";
 import { projects } from "../src/db/schema";

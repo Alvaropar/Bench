@@ -128,10 +128,14 @@ with the link, which is the point: a teammate adds a row and you see it.
 
 ```bash
 npm install
-cp .env.example .env.local   # add your Neon URL and Anthropic key
-npm run db:push
+cp .env.example .env.local   # add your Neon URL and a provider key
+npm run db:migrate           # applies drizzle/*.sql to the database
 npm run dev
 ```
+
+`db:migrate` applies the checked-in migrations and needs no terminal input, so
+it works in CI and against production. `db:push` diffs the schema directly and
+prompts before applying — handy while iterating locally, unusable non-interactively.
 
 Visit `/` for a live status panel, or `/api/health` for the JSON version.
 
@@ -147,8 +151,10 @@ for self-correction.
 
 1. Push to GitHub.
 2. Import the repo on Vercel.
-3. Set `DATABASE_URL` and `ANTHROPIC_API_KEY` in project settings.
-4. Run `npm run db:push` once against the production database.
+3. Set `DATABASE_URL` and a provider key in project settings.
+4. Run `npm run db:migrate` once against the production database.
+5. Enable Fluid Compute (Settings → Functions). Without it Hobby caps
+   functions at 60s and a generation is killed mid-run.
 
 ## Scripts
 
@@ -158,7 +164,8 @@ for self-correction.
 | `npm run build` | Production build |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run db:generate` | Emit a SQL migration from the schema |
-| `npm run db:push` | Apply the schema to the database |
+| `npm run db:migrate` | Apply the checked-in migrations (non-interactive) |
+| `npm run db:push` | Diff the schema straight onto the database (prompts) |
 | `npm run db:studio` | Browse the database |
 
 ## Known issues
