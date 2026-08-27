@@ -11,7 +11,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "tools:check": "tsx scripts/tools-check.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

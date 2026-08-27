@@ -27,7 +27,7 @@ Live app ──postMessage──▶ Bench API ──▶ records table ──▶ 
 | --- | --- | --- |
 | 0 | Deploy spine: Next.js + Neon + schema + health checks | ✅ |
 | 1 | Data spine: projects, records, schema-derived validation | ✅ |
-| 2 | Agent loop with tool use | — |
+| 2 | Agent loop: tool use, streaming, version commits | ✅ |
 | 3 | Live preview + injected `db` SDK | — |
 | 4 | Publish, shared data, version history, self-healing | — |
 
@@ -53,6 +53,19 @@ told about it in the system prompt. The agent fills in a scaffold rather than
 inventing a data layer, which is the single biggest lever on output quality and
 demo determinism.
 
+**The agent composes against a fixed scaffold.** Every generated app is
+injected with `bench/db.ts` (a typed data client plus a `useCollection` hook
+that polls, so two people with the same link see each other's rows) and
+`bench/ui.tsx` (Page, Card, Table, Modal, Button and friends). The agent writes
+`App.tsx` against those instead of inventing a data layer and a design language
+on every run. `npm run tools:check` fails the build if the system prompt and the
+injected runtime ever drift apart.
+
+**Seeds are buffered until the version commits.** They are validated the moment
+the tool is called, so mistakes reach the model while it can still fix them, but
+they are only written after the app is saved — a run that dies halfway leaves no
+rows behind for an app that never existed.
+
 **Records hang off the project, not the version.** When the agent rewrites the
 UI, the data survives. Your data outlives your code edits.
 
@@ -68,6 +81,7 @@ circular and force a two-step migration for no real benefit.
 | `GET /api/apps/:id/schema` | The app's declared collections and row counts |
 | `GET/POST /api/apps/:id/:collection` | Read and create rows in a generated app |
 | `PATCH/DELETE /api/apps/:id/:collection/:recordId` | Update and delete rows |
+| `POST /api/projects/:id/generate` | Run the agent; streams progress over SSE |
 
 Ownership is an anonymous session cookie minted by `src/proxy.ts` (Next 16
 renamed `middleware.ts` to `proxy.ts`). Unpublished projects are visible only to
@@ -88,6 +102,10 @@ Visit `/` for a live status panel, or `/api/health` for the JSON version.
 Once the database is up, `npm run smoke` exercises the data spine end to end:
 schema validation, coercion, partial updates, project isolation, and the claim
 that records survive a version rewrite.
+
+`npm run tools:check` needs neither a database nor an API key: it exercises the
+agent's tool layer directly, including every rejection path the model depends on
+for self-correction.
 
 ## Deploy
 
