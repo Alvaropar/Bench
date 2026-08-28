@@ -116,7 +116,11 @@ body {
 .bench-empty { padding: 48px 20px; text-align: center; color: var(--text-muted); }
 .bench-empty-title { color: var(--text); font-weight: 600; margin-bottom: 4px; }
 
-.bench-alert { padding: 12px 16px; border-radius: 8px; background: var(--danger-soft); color: var(--danger); border: 1px solid #fecdca; margin-bottom: 16px; }
+.bench-alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border); background: #f2f4f7; color: var(--text); }
+.bench-alert-danger { background: var(--danger-soft); color: var(--danger); border-color: #fecdca; }
+.bench-alert-warn { background: var(--warn-soft); color: var(--warn); border-color: #fedf89; }
+.bench-alert-ok { background: var(--ok-soft); color: var(--ok); border-color: #abefc6; }
+.bench-alert-info { background: var(--accent-soft); color: var(--accent); border-color: #dbe2ff; }
 
 .bench-modal-backdrop {
   position: fixed; inset: 0; background: rgba(16, 24, 40, 0.45);
@@ -205,8 +209,15 @@ export function Card({
   );
 }
 
-export function Grid({ children }: { children: React.ReactNode }) {
-  return <div className="bench-grid">{children}</div>;
+export function Grid({ children, cols }: { children: React.ReactNode; cols?: number }) {
+  return (
+    <div
+      className="bench-grid"
+      style={cols ? { gridTemplateColumns: "repeat(" + cols + ", minmax(0, 1fr))" } : undefined}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function Stat({ label, value }: { label: string; value: React.ReactNode }) {
@@ -264,9 +275,30 @@ export const Textarea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   <textarea className="bench-textarea" {...props} />
 );
 
-export const Select = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
-  <select className="bench-select" {...props} />
-);
+export function Select({
+  options,
+  children,
+  ...rest
+}: React.SelectHTMLAttributes<HTMLSelectElement> & {
+  /** Convenience: pass values instead of writing option elements. */
+  options?: (string | { value: string; label: string })[];
+}) {
+  return (
+    <select className="bench-select" {...rest}>
+      {options
+        ? options.map((option) => {
+            const value = typeof option === "string" ? option : option.value;
+            const label = typeof option === "string" ? option : option.label;
+            return (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            );
+          })
+        : children}
+    </select>
+  );
+}
 
 export function Checkbox({
   label,
@@ -365,8 +397,14 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   );
 }
 
-export function Alert({ children }: { children: React.ReactNode }) {
-  return <div className="bench-alert">{children}</div>;
+export function Alert({
+  children,
+  tone = "danger",
+}: {
+  children: React.ReactNode;
+  tone?: "danger" | "warn" | "ok" | "info";
+}) {
+  return <div className={"bench-alert bench-alert-" + tone}>{children}</div>;
 }
 
 export function Modal({
@@ -374,18 +412,31 @@ export function Modal({
   onClose,
   children,
   footer,
+  actions,
+  open = true,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** Alias for footer. */
+  actions?: React.ReactNode;
+  /** Defaults to true, so a conditionally rendered modal still works. */
+  open?: boolean;
 }) {
+  // Both shapes are in use: mount the modal conditionally, or keep it mounted
+  // and toggle "open". Supporting only the first leaves the second stuck open
+  // with no way out.
+  if (!open) return null;
+
+  const buttons = footer ?? actions;
+
   return (
     <div className="bench-modal-backdrop" onClick={onClose}>
       <div className="bench-modal" onClick={(event) => event.stopPropagation()}>
         <div className="bench-modal-header">{title}</div>
         <div className="bench-modal-body">{children}</div>
-        {footer && <div className="bench-modal-footer">{footer}</div>}
+        {buttons && <div className="bench-modal-footer">{buttons}</div>}
       </div>
     </div>
   );

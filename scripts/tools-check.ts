@@ -349,6 +349,40 @@ console.log("\nBench agent tool layer\n");
     validateFileMap({ "App.tsx": "x".repeat(70_000) }) !== null,
   );
 
+  console.log("\nComponent props");
+
+  // The export guard catches a component the prompt never mentions. This
+  // catches the subtler version: a component whose props the prompt never
+  // shows, which the model then invents -- how Modal ended up ignoring
+  // `open` and rendering a dialog nobody could close.
+  const PROPS_THAT_MUST_BE_DOCUMENTED: Record<string, string[]> = {
+    Modal: ["open", "onClose", "footer"],
+    Select: ["options"],
+    Grid: ["cols"],
+    Alert: ["tone"],
+    Table: ["columns", "rows", "actions", "empty"],
+    Field: ["label"],
+    Button: ["variant", "size"],
+  };
+
+  for (const [component, props] of Object.entries(PROPS_THAT_MUST_BE_DOCUMENTED)) {
+    for (const prop of props) {
+      check(
+        `prompt documents ${component}.${prop}`,
+        SYSTEM_PROMPT.includes(prop),
+      );
+    }
+  }
+
+  check(
+    "Modal accepts open, so a closed modal disappears",
+    UI_SOURCE.includes("open = true") && UI_SOURCE.includes("if (!open) return null"),
+  );
+  check(
+    "Modal accepts actions as well as footer",
+    UI_SOURCE.includes("footer ?? actions"),
+  );
+
 // ------------------------------------------------------- provider adapters
 {
   check(

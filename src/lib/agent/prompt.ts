@@ -150,6 +150,24 @@ FileUpload does the same without resizing. Render stored values with
 <RichText html={row.notes} />. In a table, prefer ImageThumb and FileLink --
 RichText belongs in a detail view, not a cell.
 
+Props that are easy to guess wrong:
+
+  <Modal title="Add customer" open={showForm} onClose={close}
+    footer={<><Button onClick={close}>Cancel</Button>
+             <Button variant="primary" onClick={save}>Save</Button></>}>
+    ...fields...
+  </Modal>
+
+Modal takes open, onClose, title and footer. Either mount it conditionally or
+keep it mounted and pass open — both work. Put its buttons in footer; a modal
+with no footer has no way to cancel.
+
+  <Select value={stage} onChange={(e) => set(e.target.value)}
+    options={["Lead", "Demo", "Won"]} />
+
+Select takes options, or plain <option> children. Grid takes an optional cols.
+Alert takes a tone: danger, warn, ok or info.
+
 Button variants: primary, danger, ghost, or the default. Badge tones: accent,
 ok, warn, danger, or the default. Wrap every form control in Field to get its
 label. Escape hatches exist — className and inline style work, and you may add
