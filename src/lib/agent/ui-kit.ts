@@ -56,6 +56,7 @@ body {
 .bench-stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow); }
 .bench-stat-label { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
 .bench-stat-value { font-size: 26px; font-weight: 600; margin-top: 6px; letter-spacing: -0.02em; }
+.bench-stat-hint { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
 
 .bench-btn {
   display: inline-flex; align-items: center; gap: 6px; justify-content: center;
@@ -220,11 +221,21 @@ export function Grid({ children, cols }: { children: React.ReactNode; cols?: num
   );
 }
 
-export function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+export function Stat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: React.ReactNode;
+  /** Optional line under the number: a comparison, a caveat, a unit. */
+  hint?: React.ReactNode;
+}) {
   return (
     <div className="bench-stat">
       <div className="bench-stat-label">{label}</div>
       <div className="bench-stat-value">{value}</div>
+      {hint && <div className="bench-stat-hint">{hint}</div>}
     </div>
   );
 }
@@ -350,12 +361,18 @@ export function Table<T extends { id: string }>({
   rows,
   actions,
   empty,
+  loading,
 }: {
   columns: Column<T>[];
   rows: T[];
   actions?: (row: T) => React.ReactNode;
   empty?: React.ReactNode;
+  /** Shows a placeholder instead of an empty table on first load. */
+  loading?: boolean;
 }) {
+  if (loading && rows.length === 0) {
+    return <div className="bench-empty">Loading...</div>;
+  }
   if (rows.length === 0 && empty) return <>{empty}</>;
   return (
     <table className="bench-table">

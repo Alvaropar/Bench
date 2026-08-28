@@ -5,7 +5,7 @@
 | | |
 | --- | --- |
 | Live demo | https://bench-gen-ai.vercel.app |
-| A published app | https://bench-gen-ai.vercel.app/p/product-catalog-2aak33 |
+| A published app | https://bench-gen-ai.vercel.app/p/team-expense-tracker-xg7pua |
 | Source | https://github.com/Alvaropar/Bench |
 | Model | Kimi K3 (`kimi-k3`), swappable to Claude Opus 5 with one environment variable |
 
@@ -192,6 +192,7 @@ stream instead of going quiet.
 | --- | --- | --- |
 | `npm run tools:check` | 81 | nothing — no database, no API key |
 | `npm run smoke` | 43 | a database |
+| `npm run check:app <id>` | type-checks one generated app against the scaffold | a database |
 
 Both run green. CI runs lint, typecheck, `tools:check` and a build on every
 push.
@@ -248,14 +249,18 @@ Checked directly against production, not locally:
    on this list is an improvement; this one is a capability the product is
    missing, and I have a real generation showing the agent inventing a migration
    to work around its absence.
-2. **Per-app permissions.** Publishing is a single switch; teams need reader and
+2. **Type-check generated apps automatically.** `npm run check:app` exists and
+   found three real prop mismatches the first time it ran; wiring it into the
+   generation loop would let the agent fix its own type errors before anyone
+   sees the app.
+3. **Per-app permissions.** Publishing is a single switch; teams need reader and
    writer roles before this is usable beyond a demo.
-3. **Streaming file writes.** Files appear when a tool call completes. Streaming
+4. **Streaming file writes.** Files appear when a tool call completes. Streaming
    them as they are written makes a long generation *feel* half as long, which
    matters more than making it faster.
-4. **A shared rate-limit store and per-project token budgets.** Required before
+5. **A shared rate-limit store and per-project token budgets.** Required before
    this could be public rather than demoed.
-5. **Syntax highlighting.** Editing works; reading a 15,000-character file in one
+6. **Syntax highlighting.** Editing works; reading a 15,000-character file in one
    colour is the part that hurts.
 
 I would not add generation *breadth* before 1 and 2. A narrow tool that works

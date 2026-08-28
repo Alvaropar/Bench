@@ -5,7 +5,7 @@
 **Describe an internal tool. Get a working one your team can actually use.**
 
 [**Live demo**](https://bench-gen-ai.vercel.app) ·
-[**A published app**](https://bench-gen-ai.vercel.app/p/product-catalog-2aak33) ·
+[**A published app**](https://bench-gen-ai.vercel.app/p/team-expense-tracker-xg7pua) ·
 [**Write-up**](./SUBMISSION.md)
 
 You describe a tool in plain language — "a CRM for a small sales team". An agent
@@ -140,6 +140,7 @@ npm run dev
 | `npm run db:push` | Diff the schema straight onto the database (prompts) |
 | `npm run smoke` | Data spine and accounts against a real database |
 | `npm run tools:check` | Agent layer — no database or API key needed |
+| `npm run check:app <id>` | Type-check one generated app against the scaffold |
 
 Visit `/` for a status panel or `/api/health` for the JSON version.
 

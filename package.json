@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "smoke": "tsx scripts/smoke.ts",
     "tools:check": "tsx scripts/tools-check.ts",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "check:app": "tsx scripts/check-app.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

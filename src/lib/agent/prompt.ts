@@ -166,7 +166,9 @@ with no footer has no way to cancel.
     options={["Lead", "Demo", "Won"]} />
 
 Select takes options, or plain <option> children. Grid takes an optional cols.
-Alert takes a tone: danger, warn, ok or info.
+Alert takes a tone: danger, warn, ok or info. Stat takes an optional hint
+under the number. Table takes loading, so it shows a placeholder rather than
+an empty table on first load.
 
 Button variants: primary, danger, ghost, or the default. Badge tones: accent,
 ok, warn, danger, or the default. Wrap every form control in Field to get its
